@@ -6,8 +6,6 @@
 from dearpygui.core import *
 from dearpygui.simple import *
 import math
-import numpy as np
-import pandas as pd
 
 #set initial window configuration (purely cosmetic)
 set_main_window_size(1300, 700)
