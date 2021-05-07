@@ -1,7 +1,7 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
 #
-#   Version 0.2.2
+#   Version 0.2.3
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -93,7 +93,8 @@ def simulateTraj():
     def clamp(num, min_value, max_value):
         return max(min(num, max_value), min_value)
 
-    # this is taken directly from https://github.com/pvlib/pvlib-python/blob/master/pvlib/atmosphere.py (07.05.2021)
+    # this is taken from https://github.com/pvlib/pvlib-python/blob/master/pvlib/atmosphere.py (07.05.2021) and modified
+    # because it goes bonkers after altitude is way too high
     def alt2pres(altitude):
         '''
         Determine site pressure from altitude.
@@ -126,14 +127,21 @@ def simulateTraj():
 
         press = 100 * ((44331.514 - altitude) / 11880.516) ** (1 / 0.1902632)
 
+        # stop the func. from going bonkers - just say it is 0
+        if not type(press) == float:
+            press = 0.0
+            
         return press
 
     # ACTUAL CALCULATIONS
 
+    #set initial values
     alt = alt_init
     thrust = mdot * eev + exit_area * (exit_pressure - alt2pres(alt_init))
     mass = mass_init
     vel = 0
+    accel = 0
+    external_pressure = alt2pres(alt_init)
 
     # gravitational acceleration at any point = gravitational constant * (mass of earth/distance from center of earth^2)
     # TO DO: Account for Earth's rotation (i.e. coriolis effect)
@@ -144,6 +152,7 @@ def simulateTraj():
     time_list = []
     alt_list = []
     vel_list = []
+    accel_list = []
     ground_level_list = []
     karman_line_list = []
     thrust_list = []
@@ -155,6 +164,7 @@ def simulateTraj():
     is_launching = True
 
     while (True):
+        print(external_pressure)
 
         if is_launching:
 
@@ -175,13 +185,14 @@ def simulateTraj():
         vel_list.append(vel)
         ground_level_list.append(alt_init)
         karman_line_list.append(100000)
-        external_pressure_list.append(alt2pres(alt))
+        external_pressure_list.append(external_pressure)
         gravity_list.append(-gravity)
+        accel_list.append(accel)
         
         time = time + time_increment
 
         if mass > mass_final:
-            thrust = mdot * eev + exit_area * (exit_pressure - alt2pres(alt))
+            thrust = mdot * eev + exit_area * (exit_pressure - external_pressure)
         else:
             thrust = 0
 
@@ -197,6 +208,7 @@ def simulateTraj():
             vel = vel + gravity * time_increment
 
         alt = alt + vel * time_increment
+        accel = thrust/mass + gravity
 
         if is_going_up and vel < 0:
             is_going_up = False
@@ -216,12 +228,13 @@ def simulateTraj():
 
     add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
     add_line_series(name="Velocity", plot="vel_plot",x=time_list, y=vel_list)
+    add_line_series(name="Acceleration", plot="accel_plot",x=time_list, y=accel_list)
     add_line_series(name="Thrust", plot="thrust_plot",x=time_list, y=thrust_list)
     add_line_series(name="External Pressure", plot="ext_press_plot",x=time_list, y=external_pressure_list)
     add_line_series(name="Gravity", plot="grav_plot",x=time_list, y=gravity_list)
 
     global last_results
-    last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list, external_pressure_list, gravity_list]
+    last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list, external_pressure_list, gravity_list, accel_list]
 
 def toggleGround():
     global is_ground_displayed
@@ -288,6 +301,8 @@ with window("Output", width=700, height=560, no_close=True):
     end("alt_tab")
     add_tab(name="vel_tab", label="Velocity", parent="output_tabs")
     end("vel_tab")
+    add_tab(name="accel_tab", label="Acceleration", parent="output_tabs")
+    end("accel_tab")
     add_tab(name="thrust_tab", label="Thrust", parent="output_tabs")
     end("thrust_tab")
     add_tab(name="ext_press_tab", label="Ext. Press", parent="output_tabs")
@@ -302,6 +317,9 @@ with window("Output", width=700, height=560, no_close=True):
 
     add_plot(name="vel_plot", label="Velocity vs Time",
              x_axis_name="Time (s)", y_axis_name = "Velocity (m/s)", anti_aliased=True, parent="vel_tab")
+
+    add_plot(name="accel_plot", label="Acceleration vs Time",
+             x_axis_name="Time (s)", y_axis_name = "Acceleration (m/s^2)", anti_aliased=True, parent="accel_tab")
 
     add_plot(name="thrust_plot", label="Thrust vs Time",
              x_axis_name="Time (s)", y_axis_name = "Thrust (N)", anti_aliased=True, parent="thrust_tab")
