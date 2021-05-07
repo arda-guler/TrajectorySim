@@ -164,7 +164,6 @@ def simulateTraj():
     is_launching = True
 
     while (True):
-        print(external_pressure)
 
         if is_launching:
 
