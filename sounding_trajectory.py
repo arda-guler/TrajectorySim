@@ -583,7 +583,7 @@ with window("Input", width=550, height=360, no_close=True):
     add_button("Simulate Trajectory", callback = simulateTraj)
     add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable the terrible drag model", tip="DON'T TRUST THIS!")
-    add_input_text(name = "cross_sec_field", label = "Vessel Cross Section", tip="Cross-sec facing the airflow.")
+    add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.")
     add_input_text(name = "drag_coeff_field", label = "Drag Coefficient")
 
 #OUTPUTS WINDOW
