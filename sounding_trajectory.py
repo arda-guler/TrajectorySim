@@ -1,18 +1,16 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
-#
-#   Version 0.3.1
+
+version = "0.4.0"
 
 from dearpygui.core import *
 from dearpygui.simple import *
 import math
 import pandas as pd
 
-version = "0.3.1"
-
 #set initial window configuration (purely cosmetic)
 set_main_window_size(1300, 700)
-set_main_window_title("Single Stage Sounding Rocket Trajectory Simulator | MRS")
+set_main_window_title("Sounding Rocket Trajectory Simulator | MRS")
 set_theme("Dark")
 
 calc_run_number = 0
@@ -27,6 +25,9 @@ last_alt_init = None
 last_time_increment = None
 last_exit_pressure = None
 last_exit_area = None
+last_cross_sec = None
+last_drag_coeff = None
+last_drag_model = None
 
 last_results = []
 
@@ -35,6 +36,10 @@ is_ground_displayed = False
 is_karman_displayed = False
 
 set_value(name="progress", value=0)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                 FILE IMPORT/EXPORT
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def importFile():
 
@@ -67,6 +72,16 @@ def importFile():
         set_value(name="exit_pressure_field", value=import_lines[9][22:-4])
         set_value(name="exit_area_field", value=import_lines[10][18:-5])
         set_value(name="time_increment_field", value=import_lines[11][16:-3])
+
+        if import_lines[14] == "Drag model ENABLED.\n":
+            set_value(name="drag_model_checkbox", value=True)
+            set_value(name="cross_sec_field", value=import_lines[12][39:-5])
+            set_value(name="drag_coeff_field", value=import_lines[13][41:-1])
+        else:
+            set_value(name="drag_model_checkbox", value=False)
+            set_value(name="cross_sec_field", value="Drag model disabled.")
+            set_value(name="drag_coeff_field", value="Drag model disabled.")
+            
     except:
         log_error("Import failed. Check file formatting.", logger="Logs")
         return
@@ -110,6 +125,10 @@ def exportFile():
             # [7]: gravity_list
             # [8]: accel_list
             # [9]: isp_list
+            # [10]: drag_list
+            # [11]: dyn_press_list
+
+            global last_drag_model
             
             export_thrust = {'Time (s)': last_results[1],'Thrust (N)': last_results[0]}
             export_alt = {'Time (s)': last_results[1],'Altitude (m)': last_results[2]}
@@ -118,6 +137,9 @@ def exportFile():
             export_gravity = {'Time (s)': last_results[1],'Gravity (m/s^2)': last_results[7]}
             export_accel = {'Time (s)': last_results[1],'Acceleration (m/s^2)': last_results[8]}
             export_isp = {'Time (s)': last_results[1],'Specific Impulse (s)': last_results[9]}
+            if last_drag_model:
+                export_drag = {'Time (s)': last_results[1],'Drag (N)': last_results[10]}
+                export_dyn_press = {'Time (s)': last_results[1],'Dynamic Pressure (Pa)': last_results[11]}
 
             df_alt = pd.DataFrame(export_alt)
             df_vel = pd.DataFrame(export_vel)
@@ -126,22 +148,30 @@ def exportFile():
             df_external_pressure = pd.DataFrame(export_external_pressure)
             df_gravity = pd.DataFrame(export_gravity)
             df_isp = pd.DataFrame(export_isp)
+            if last_drag_model:
+                df_drag = pd.DataFrame(export_drag)
+                df_dyn_press = pd.DataFrame(export_dyn_press)
 
             with pd.ExcelWriter(exportFile) as writer:
-                set_value(name="progress", value=0.13)
+                set_value(name="progress", value=0.11)
                 df_alt.to_excel(writer, sheet_name = 'Altitude')
-                set_value(name="progress", value=0.27)
+                set_value(name="progress", value=0.22)
                 df_vel.to_excel(writer, sheet_name = 'Velocity')
-                set_value(name="progress", value=0.40)
+                set_value(name="progress", value=0.33)
                 df_accel.to_excel(writer, sheet_name = 'Acceleration')
-                set_value(name="progress", value=0.53)
+                set_value(name="progress", value=0.44)
                 df_thrust.to_excel(writer, sheet_name = 'Thrust')
-                set_value(name="progress", value=0.67)
+                set_value(name="progress", value=0.55)
                 df_external_pressure.to_excel(writer, sheet_name = 'Ext. Press.')
-                set_value(name="progress", value=0.80)
+                set_value(name="progress", value=0.66)
                 df_gravity.to_excel(writer, sheet_name = 'Gravity')
-                set_value(name="progress", value=0.93)
+                set_value(name="progress", value=0.77)
                 df_isp.to_excel(writer, sheet_name = 'Isp')
+                set_value(name="progress", value=0.88)
+                if last_drag_model:
+                    df_drag.to_excel(writer, sheet_name = 'Drag')
+                    set_value(name="progress", value=0.90)
+                    df_dyn_press.to_excel(writer, sheet_name = 'Dyn. Press.')
   
             log_info("Successfully saved data to " + exportFile, logger = "Logs")
             
@@ -150,7 +180,7 @@ def exportFile():
 
         # Save given inputs to TXT
         try:
-            set_value(name="progress", value=0.98)
+            set_value(name="progress", value=0.96)
             inputSaveFile = exportFile[0:-5] + ".txt"
             result_file = open(inputSaveFile, "w")
             result_file.write("Save file version " + version + "\n\n")
@@ -171,6 +201,17 @@ def exportFile():
             result_file.write(str(last_exit_area)+" m^2\n")
             result_file.write("Time increment: ")
             result_file.write(str(last_time_increment)+" s\n")
+            result_file.write("Vessel cross-section (facing airflow): ")
+            if last_drag_model:
+                result_file.write(str(last_cross_sec)+" m^2\n")
+            else:
+                result_file.write(str(last_cross_sec)+"\n")
+            result_file.write("Drag coefficient (launch configuration): ")
+            result_file.write(str(last_drag_coeff)+"\n")
+            if last_drag_model:
+                result_file.write("Drag model ENABLED.\n")
+            else:
+                result_file.write("Drag model DISABLED.\n")
             result_file.write("\nOUTPUTS\n\n")
             result_file.write("Maximum altitude: ")
             result_file.write(str(get_value("alt_max"))+" m\n")
@@ -186,6 +227,11 @@ def exportFile():
             result_file.write(str(get_value("isp_min"))+" s\n")
             result_file.write("Max. specific impulse: ")
             result_file.write(str(get_value("isp_max"))+" s\n")
+            result_file.write("Max. dynamic pressure: ")
+            if last_drag_model:
+                result_file.write(str(get_value("max_Q"))+" Pa\n")
+            else:
+                result_file.write("Drag model disabled.\n")
             result_file.write("Simulation export file: " + exportFile + "\n")
             result_file.close()
             log_info("Inputs saved in " + inputSaveFile, logger = "Logs")
@@ -197,12 +243,21 @@ def exportFile():
     set_value(name="progress", value=1)
     hide_item("progress_bar")
     log_info("Done.", logger = "Logs")
+    set_value(name="progress", value=0)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                SIMULATION SETUP
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def simulateTraj():
     
     global calc_run_number
     calc_run_number += 1
     log_info(message = "Run [" + str(calc_run_number) + "]: Simulating trajectory...", logger = "Logs")
+
+    # get input values from entry fields
+
+    drag_enabled = get_value("drag_model_checkbox")
     
     try:
         eev = float(get_value("eev_field"))
@@ -213,6 +268,14 @@ def simulateTraj():
         exit_pressure = float(get_value("exit_pressure_field"))
         exit_area = float(get_value("exit_area_field"))
         time_increment = float(get_value("time_increment_field"))
+
+        if drag_enabled:
+            cross_sec = float(get_value("cross_sec_field"))
+            drag_coeff = float(get_value("drag_coeff_field"))
+        else:
+            cross_sec = -1.0
+            drag_coeff = -1.0
+            
     except:
         log_error("Input error. Make sure all design parameters are float values.", logger = "Logs")
         return
@@ -222,7 +285,7 @@ def simulateTraj():
         return
 
     # save these values in global scope, in case we want to export
-    global last_eev, last_mdot, last_mass_init, last_mass_final, last_alt_init, last_time_increment, last_exit_area, last_exit_pressure
+    global last_eev, last_mdot, last_mass_init, last_mass_final, last_alt_init, last_time_increment, last_exit_area, last_exit_pressure, last_drag_model
     last_eev = eev
     last_mdot = mdot
     last_mass_init = mass_init
@@ -232,6 +295,17 @@ def simulateTraj():
     last_exit_pressure = exit_pressure
     last_time_increment = time_increment
 
+    global last_cross_sec, last_drag_coeff
+
+    if drag_enabled:
+        last_drag_model = True
+        last_cross_sec = cross_sec
+        last_drag_coeff = drag_coeff
+    else:
+        last_drag_model = False
+        last_cross_sec = "Drag model disabled."
+        last_drag_coeff = "Drag model disabled."
+
     log_info("Inputs:\n" +
              "Eff. Ex. Vel: " + str(eev) + " m/s\n"
              "Mass Flow: " + str(mdot) + " kg/s\n"
@@ -240,7 +314,8 @@ def simulateTraj():
              "Initial Alt.: " + str(alt_init) + " m\n"
              "Exit Press.: " + str(exit_pressure) + " Pa\n"
              "Exit Area: " + str(exit_area) + " m^2\n"
-             "Time Increment: " + str(time_increment) + " s", logger = "Logs")
+             "Time Increment: " + str(time_increment) + " s\n"
+             "Cross Section: " + str(cross_sec) + " m^2", logger = "Logs")
 
 
     # Calculation sub-functions
@@ -248,61 +323,92 @@ def simulateTraj():
     def clamp(num, min_value, max_value):
         return max(min(num, max_value), min_value)
 
-    # this is taken from https://github.com/pvlib/pvlib-python/blob/master/pvlib/atmosphere.py (07.05.2021) and modified
-    # because it goes bonkers after altitude is way too high
-    def alt2pres(altitude):
-        '''
-        Determine site pressure from altitude.
-        Parameters
-        ----------
-        altitude : numeric
-            Altitude above sea level. [m]
-        Returns
-        -------
-        pressure : numeric
-            Atmospheric pressure. [Pa]
-        Notes
-        ------
-        The following assumptions are made
-        ============================   ================
-        Parameter                      Value
-        ============================   ================
-        Base pressure                  101325 Pa
-        Temperature at zero altitude   288.15 K
-        Gravitational acceleration     9.80665 m/s^2
-        Lapse rate                     -6.5E-3 K/m
-        Gas constant for air           287.053 J/(kg K)
-        Relative Humidity              0%
-        ============================   ================
-        References
-        -----------
-        .. [1] "A Quick Derivation relating altitude to air pressure" from
-           Portland State Aerospace Society, Version 1.03, 12/22/2004.
-        '''
+    def sign(x): return 1 if x >= 0 else -1
 
-        press = 100 * ((44331.514 - altitude) / 11880.516) ** (1 / 0.1902632)
+    def alt2dens(altitude):
 
-        # stop the func. from going bonkers - just say it is 0
-        if not type(press) == float:
-            press = 0.0
-            
+        if altitude > 85000:
+            return 0.0
+        else:
+            # atmospheric density lookup file has values in kg/m^3, with steps of 100 meters
+            # retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
+            model_filename = "atm_density_model.txt"
+            model_file = open(model_filename, "r")
+            model_lines = model_file.readlines()
+
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
+
+            lookup_line_low = float(model_lines[alt_low])
+            lookup_line_high = float(model_lines[alt_high])
+
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_density = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
+
+            return float(interpolated_density)
+
+    # https://www.grc.nasa.gov/www/k-12/airplane/atmosmet.html
+    def alt2press(altitude):
+
+        # takes altitude in meters
+        # returns typical pressure, density or temperature on demand
+        # altitude: m
+        # pressure: Pa
+        # temp: degrees C
+
+        if altitude < 11000:
+            temp = -131.21 + 0.00299 * altitude
+            press = 101330 * (1-((0.0065 * altitude)/(288.15)))**((9.807)/(286.9 * 0.0065))
+
+        if 25000 > altitude >= 11000:
+            temp = -56.46
+            press = (22.65 * math.e ** (1.73 - 0.000157 * altitude)) * 1000
+
+        if altitude >= 25000:
+            temp = -131.21 + 0.00299 * altitude
+            press = (2.488 * ((temp + 273.1)/(216.6))**(-11.388)) * 1000
+        
         return press
 
-    # ACTUAL CALCULATIONS
+    # VERY TERRIBLE approximation of drag force on the vessel
+    def calc_drag(velocity, altitude):
+
+        if get_value("drag_model_checkbox"):
+            # drag_coeff = 0.1
+            drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)
+            dynamic_press = 0.5 * alt2dens(altitude) * velocity**2
+
+            return drag, dynamic_press
+        
+        else:
+            return 0.0, 0.0
+
+    def calc_grav(altitude):
+        gravity = 9.80665 * (6369000/(6369000+altitude))**2
+        return gravity
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #                   RUN SIMULATION
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     #set initial values
+    
     alt = alt_init
-    thrust = mdot * eev + exit_area * (exit_pressure - alt2pres(alt_init))
+    thrust = mdot * eev + exit_area * (exit_pressure - alt2press(alt_init))
     mass = mass_init
     vel = 0
     accel = 0
-    external_pressure = alt2pres(alt_init)
+    external_pressure = alt2press(alt_init)
     isp = (thrust)/(mdot * 9.80665)
     set_value(name="isp_min", value=isp)
+    drag = 0
+    dyn_press = 0
+    density = alt2dens(alt_init)
 
     # gravitational acceleration at any point = gravitational constant * (mass of earth/distance from center of earth^2)
     # TO DO: Account for Earth's rotation (i.e. coriolis effect)
-    gravity = -((6.67430 * 10**-11) * (5.9722 * 10**24) / ((6369000 + alt_init)**2)) # in m/s^2 obviously
+    #gravity = -((6.67430 * 10**-11) * (5.9722 * 10**24) / ((6369000 + alt_init)**2)) # in m/s^2 obviously
+    gravity = -calc_grav(alt_init)
     
     time = 0
     
@@ -316,11 +422,16 @@ def simulateTraj():
     external_pressure_list = []
     gravity_list = []
     isp_list = []
+    drag_list = []
+    dyn_press_list = []
+    density_list = []
 
     is_going_up = True
     is_accelerating_up = True
     is_launching = True
 
+    # BEGIN TIMESTEPS
+    
     while (True):
 
         if is_launching:
@@ -346,6 +457,11 @@ def simulateTraj():
         gravity_list.append(-gravity)
         accel_list.append(accel)
         isp_list.append(isp)
+        drag_list.append(drag)
+        dyn_press_list.append(dyn_press)
+        density_list.append(density)
+
+        density = alt2dens(alt)
         
         time = time + time_increment
 
@@ -354,26 +470,28 @@ def simulateTraj():
         else:
             thrust = 0
 
-        gravity = -((6.67430 * 10**-11) * (5.9722 * 10**24) / ((6369000 + alt)**2))
+        gravity = -calc_grav(alt)
         
-        external_pressure = alt2pres(alt) #returns in pascals
+        external_pressure = alt2press(alt) #returns in pascals
 
         # don't provide thrust if propellants are depleted!
         if mass > mass_final:      
-            vel = vel + ((thrust/mass) * time_increment) + (gravity * time_increment)
+            vel = vel + ((thrust/mass) * time_increment) + (gravity * time_increment) + (drag/mass * time_increment)
             mass = mass - mdot * time_increment
         else:
-            vel = vel + gravity * time_increment
+            vel = vel + gravity * time_increment + drag/mass * time_increment
 
         alt = alt + vel * time_increment
-        accel = thrust/mass + gravity
+        accel = thrust/mass + gravity + drag/mass
         isp = (thrust)/(mdot * 9.80665)
+        drag, dyn_press = calc_drag(vel, alt)
 
         if is_going_up and vel < 0:
             is_going_up = False
             alt_max = alt
             set_value(name="tt_apoapsis", value=time)
             set_value(name="alt_max", value=alt_max)
+            set_value(name="max_Q", value=max(dyn_press_list))
 
         if is_accelerating_up and not mass > mass_final:
             is_accelerating_up = False
@@ -390,7 +508,7 @@ def simulateTraj():
             set_value(name="flight_time", value=flight_time)
             log_info("Simulation completed.", logger="Logs")
             if time_increment > 0.1:
-                log_warning("Time increment too large. Simulation may be inaccurate.", logger = "Logs")
+                log_warning("Time increment too large. Last simulation may be inaccurate.", logger = "Logs")
             break
 
     add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
@@ -400,10 +518,14 @@ def simulateTraj():
     add_line_series(name="External Pressure", plot="ext_press_plot",x=time_list, y=external_pressure_list)
     add_line_series(name="Gravity", plot="grav_plot",x=time_list, y=gravity_list)
     add_line_series(name="Isp", plot="isp_plot", x=time_list, y=isp_list)
+    add_line_series(name="Drag", plot="drag_plot", x=time_list, y=drag_list)
+    add_line_series(name="Dynamic Pressure", plot="dyn_press_plot", x=time_list, y=dyn_press_list)
+    #add_line_series(name="Density", plot="density_plot", x=time_list, y=density_list)
 
     global last_results
-    last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list, external_pressure_list, gravity_list, accel_list, isp_list]
+    last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list, external_pressure_list, gravity_list, accel_list, isp_list, drag_list, dyn_press_list]
 
+# toggle graph guidelines to aid the naked eye
 def toggleGround():
     global is_ground_displayed
     if calc_run_number > 0:
@@ -427,7 +549,10 @@ def toggleKarman():
             is_karman_displayed = True
     else:
         log_warning("Run a calculation first!", logger = "Logs")
-    
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                    USER INTERFACE
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #FILE OPERATIONS BAR
 with window("File I/O", width=1260, height=60, no_close=True, no_move=True):
@@ -456,6 +581,10 @@ with window("Input", width=550, height=360, no_close=True):
     add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.01")
     add_spacing(count=6)
     add_button("Simulate Trajectory", callback = simulateTraj)
+    add_spacing(count=6)
+    add_checkbox(name = "drag_model_checkbox", label = "Enable the terrible drag model", tip="DON'T TRUST THIS!")
+    add_input_text(name = "cross_sec_field", label = "Vessel Cross Section", tip="Cross-sec facing the airflow.")
+    add_input_text(name = "drag_coeff_field", label = "Drag Coefficient")
 
 #OUTPUTS WINDOW
 with window("Output", width=700, height=560, no_close=True):
@@ -481,6 +610,12 @@ with window("Output", width=700, height=560, no_close=True):
     end("grav_tab")
     add_tab(name="isp_tab", label="Isp", parent="output_tabs")
     end("isp_tab")
+    add_tab(name="drag_tab", label="Drag", parent="output_tabs")
+    end("drag_tab")
+    add_tab(name="dyn_press_tab", label="Dyn. Press.", parent="output_tabs")
+    end("dyn_press_tab")
+    #add_tab(name="density_tab", label="Density", parent="output_tabs")
+    #end("density_tab")
     
     add_input_text(name = "tt_apoapsis_output_field", label = "Time to Apoapsis (s)",
                    source="tt_apoapsis", readonly=True, enabled=False, parent ="alt_tab")
@@ -516,6 +651,17 @@ with window("Output", width=700, height=560, no_close=True):
                    source="isp_max", readonly=True, enabled=False, parent ="isp_tab")
     add_plot(name="isp_plot", label="Specific Impulse (Isp) vs Time",
              x_axis_name="Time (s)", y_axis_name = "Specific Impulse (s)", anti_aliased=True, parent="isp_tab")
+
+    add_plot(name="drag_plot", label="Drag vs Time",
+             x_axis_name="Time (s)", y_axis_name = "Drag (N)", anti_aliased=True, parent="drag_tab")
+
+    add_input_text(name = "max_Q_field", label = "Max. Q at Launch (Pa)",
+                   source="max_Q", readonly=True, enabled=False, parent ="dyn_press_tab", tip="Max Q on the way up.")
+    add_plot(name="dyn_press_plot", label="Dynamic Pressure vs Time",
+             x_axis_name="Time (s)", y_axis_name = "Dynamic Pressure (Pa)", anti_aliased=True, parent="dyn_press_tab")
+
+    #add_plot(name="density_plot", label="Density vs Time",
+    #         x_axis_name="Time (s)", y_axis_name = "Density (kg/m^3)", anti_aliased=True, parent="density_tab")
 
 #LOG WINDOW
 with window("Log", width=550, height=190, no_close=True):
