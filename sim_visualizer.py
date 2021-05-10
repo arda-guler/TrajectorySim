@@ -466,7 +466,7 @@ with window("Output", width=700, height=560, no_close=True):
     add_input_text(name="alt_output", label="Altitude ASL (m)", source="alt", readonly=True, enabled=False)
     add_input_text(name="alt_g_output", label="Altitude AGL (m)", source="alt_g", readonly=True, enabled=False)
     add_input_text(name="vel_output", label="Velocity (m/s)", source="vel", readonly=True, enabled=False)
-    add_input_text(name="time_output", label="Time (s)", source="time", readonly=True, enabled=False)
+    add_input_text(name="time_output", label="Mission Elapsed Time (s)", source="time", readonly=True, enabled=False)
 
     add_tab_bar(name="graph_switch")
     end("graph_switch")
