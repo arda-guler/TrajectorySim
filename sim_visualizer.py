@@ -547,7 +547,7 @@ with window("Output", width=700, height=560, no_close=True):
 
     #VISUALIZATION
     
-    add_drawing("vis_canvas", parent="vis_tab", width=680, height=380, tip="I'm here")
+    add_drawing("vis_canvas", parent="vis_tab", width=680, height=380)
     clear_drawing("vis_canvas")
     draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,1,680,380), pmax=space2screen(340,1,680,380), color=[0,100,255,255])
     draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,1,680,380), pmax=space2screen(0,5,680,380), color=[200,0,0,255])
