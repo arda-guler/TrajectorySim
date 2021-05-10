@@ -1,7 +1,7 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
 
-version = "0.4.1"
+version = "0.4.2"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -420,12 +420,7 @@ def simulateTraj():
     drag = 0
     dyn_press = 0
     density = alt2dens(alt_init)
-
-    # gravitational acceleration at any point = gravitational constant * (mass of earth/distance from center of earth^2)
-    # TO DO: Account for Earth's rotation (i.e. coriolis effect)
-    #gravity = -((6.67430 * 10**-11) * (5.9722 * 10**24) / ((6369000 + alt_init)**2)) # in m/s^2 obviously
     gravity = -calc_grav(alt_init)
-    
     time = 0
     
     time_list = []
@@ -499,7 +494,7 @@ def simulateTraj():
 
         gravity = -calc_grav(alt)
         
-        external_pressure = alt2press(alt) #returns in pascals
+        external_pressure = alt2press(alt)
 
         # don't provide thrust if propellants are depleted!
         if mass > mass_final:      
@@ -542,6 +537,17 @@ def simulateTraj():
             setProgressBarOverlay("")
             
             break
+
+        if get_value("realtime_graph"):
+            add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
+            add_line_series(name="Velocity", plot="vel_plot",x=time_list, y=vel_list)
+            add_line_series(name="Acceleration", plot="accel_plot",x=time_list, y=accel_list)
+            add_line_series(name="Thrust", plot="thrust_plot",x=time_list, y=thrust_list)
+            add_line_series(name="External Pressure", plot="ext_press_plot",x=time_list, y=external_pressure_list)
+            add_line_series(name="Gravity", plot="grav_plot",x=time_list, y=gravity_list)
+            add_line_series(name="Isp", plot="isp_plot", x=time_list, y=isp_list)
+            add_line_series(name="Drag", plot="drag_plot", x=time_list, y=drag_list)
+            add_line_series(name="Dynamic Pressure", plot="dyn_press_plot", x=time_list, y=dyn_press_list) 
 
     setProgressBarOverlay("Updating graphs...")
     add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
@@ -619,6 +625,8 @@ with window("Input", width=550, height=360, no_close=True):
     add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.01")
     add_spacing(count=6)
     add_button("Simulate Trajectory", callback = simulateTraj)
+    add_same_line()
+    add_checkbox(name = "realtime_graph", label = "Update graphs in real-time", tip="Looks really cool but reduces performance.")
     add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable the terrible drag model", tip="DON'T TRUST THIS!")
     add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.")
