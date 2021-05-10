@@ -1,7 +1,7 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
 
-version = "0.4.0"
+version = "0.4.1"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -98,6 +98,7 @@ def exportFile():
         return
 
     show_item("progress_bar")
+    setProgressBarOverlay("Attempting export...")
     excelFilename = get_value("filepath_field")
 
     # sanitize filename
@@ -128,6 +129,8 @@ def exportFile():
             # [10]: drag_list
             # [11]: dyn_press_list
 
+            setProgressBarOverlay("Preparing data for export...")
+
             global last_drag_model
             
             export_thrust = {'Time (s)': last_results[1],'Thrust (N)': last_results[0]}
@@ -154,30 +157,42 @@ def exportFile():
 
             with pd.ExcelWriter(exportFile) as writer:
                 set_value(name="progress", value=0.11)
+                setProgressBarOverlay("Writing altitude...")
                 df_alt.to_excel(writer, sheet_name = 'Altitude')
                 set_value(name="progress", value=0.22)
+                setProgressBarOverlay("Writing velocity...")
                 df_vel.to_excel(writer, sheet_name = 'Velocity')
                 set_value(name="progress", value=0.33)
+                setProgressBarOverlay("Writing acceleration...")
                 df_accel.to_excel(writer, sheet_name = 'Acceleration')
                 set_value(name="progress", value=0.44)
+                setProgressBarOverlay("Writing thrust...")
                 df_thrust.to_excel(writer, sheet_name = 'Thrust')
                 set_value(name="progress", value=0.55)
+                setProgressBarOverlay("Writing ext. press...")
                 df_external_pressure.to_excel(writer, sheet_name = 'Ext. Press.')
                 set_value(name="progress", value=0.66)
+                setProgressBarOverlay("Writing gravity...")
                 df_gravity.to_excel(writer, sheet_name = 'Gravity')
                 set_value(name="progress", value=0.77)
+                setProgressBarOverlay("Writing Isp...")
                 df_isp.to_excel(writer, sheet_name = 'Isp')
                 set_value(name="progress", value=0.88)
                 if last_drag_model:
+                    setProgressBarOverlay("Writing drag...")
                     df_drag.to_excel(writer, sheet_name = 'Drag')
                     set_value(name="progress", value=0.90)
+                    setProgressBarOverlay("Writing dyn. press...")
                     df_dyn_press.to_excel(writer, sheet_name = 'Dyn. Press.')
+
+                setProgressBarOverlay("Finishing xlsx export...")
   
             log_info("Successfully saved data to " + exportFile, logger = "Logs")
             
         except:
             log_error("Excel export failed.", logger = "Logs")
 
+        setProgressBarOverlay("Saving inputs to TXT...")
         # Save given inputs to TXT
         try:
             set_value(name="progress", value=0.96)
@@ -244,6 +259,7 @@ def exportFile():
     hide_item("progress_bar")
     log_info("Done.", logger = "Logs")
     set_value(name="progress", value=0)
+    setProgressBarOverlay("")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                SIMULATION SETUP
@@ -430,9 +446,20 @@ def simulateTraj():
     is_accelerating_up = True
     is_launching = True
 
+    show_item("progress_bar")
+    progress_loop = 0
+
     # BEGIN TIMESTEPS
     
     while (True):
+
+        if progress_loop < 1.0:
+            progress_loop = progress_loop + 0.01
+        else:
+            progress_loop = 0.0
+
+        set_value(name="progress", value=progress_loop)
+        setProgressBarOverlay("Simulation running...")
 
         if is_launching:
 
@@ -509,8 +536,14 @@ def simulateTraj():
             log_info("Simulation completed.", logger="Logs")
             if time_increment > 0.1:
                 log_warning("Time increment too large. Last simulation may be inaccurate.", logger = "Logs")
+                
+            set_value(name="progress", value=0)
+            hide_item("progress_bar")
+            setProgressBarOverlay("")
+            
             break
 
+    setProgressBarOverlay("Updating graphs...")
     add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
     add_line_series(name="Velocity", plot="vel_plot",x=time_list, y=vel_list)
     add_line_series(name="Acceleration", plot="accel_plot",x=time_list, y=accel_list)
@@ -524,6 +557,15 @@ def simulateTraj():
 
     global last_results
     last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list, external_pressure_list, gravity_list, accel_list, isp_list, drag_list, dyn_press_list]
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                    USER INTERFACE
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# hacky function to update progress bar overlay text
+# because dearpygui.simple doesn't have such a solution
+def setProgressBarOverlay(overlay_str):
+    internal_dpg.configure_item("progress_bar", overlay=overlay_str)
 
 # toggle graph guidelines to aid the naked eye
 def toggleGround():
@@ -550,10 +592,6 @@ def toggleKarman():
     else:
         log_warning("Run a calculation first!", logger = "Logs")
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#                    USER INTERFACE
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 #FILE OPERATIONS BAR
 with window("File I/O", width=1260, height=60, no_close=True, no_move=True):
     set_window_pos("File I/O", 10, 10)
@@ -563,7 +601,7 @@ with window("File I/O", width=1260, height=60, no_close=True, no_move=True):
     add_same_line()
     add_button("Export", callback = exportFile)
     add_same_line()
-    add_progress_bar(name="progress_bar", source="progress", width=150)
+    add_progress_bar(name="progress_bar", source="progress", width=200, overlay="progress_overlay")
     hide_item("progress_bar")
 
 #INPUTS WINDOW
