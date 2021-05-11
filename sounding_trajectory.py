@@ -596,7 +596,7 @@ def simulateTraj():
         # reduce computation speed to real-time if user prefers
         if get_value("sim_mode"):
             if get_value("realtime_graph"):
-                t.sleep(time_increment*0.8)
+                t.sleep(time_increment*0.8*(1/time))
             else:
                 t.sleep(time_increment)
         
@@ -707,7 +707,7 @@ with window("Input", width=550, height=360, no_close=True):
     add_spacing(count=6)
     add_button("Simulate Trajectory", callback = simulateTraj)
     add_same_line()
-    add_checkbox(name = "realtime_graph", label = "Update graphs every cycle", tip="Looks really cool but reduces performance.")
+    add_checkbox(name = "realtime_graph", label = "Update graphs every cycle", tip="Looks really cool but significantly reduces performance.")
 
 #OUTPUTS WINDOW
 with window("Output", width=700, height=560, no_close=True):
