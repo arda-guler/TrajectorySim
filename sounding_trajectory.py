@@ -1,7 +1,7 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
 
-version = "1.0.0"
+version = "1.0.1"
 
 from dearpygui.core import *
 from dearpygui.simple import *
