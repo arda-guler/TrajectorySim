@@ -1,12 +1,13 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
 
-version = "0.4.2"
+version = "1.0.0"
 
 from dearpygui.core import *
 from dearpygui.simple import *
 import math
 import pandas as pd
+import time as t
 
 #set initial window configuration (purely cosmetic)
 set_main_window_size(1300, 700)
@@ -448,6 +449,54 @@ def simulateTraj():
     
     while (True):
 
+        # update visualizer ---
+
+        vis_scale = float(get_value("vis_scale_field"))
+        clear_drawing("vis_canvas")
+
+        if not get_value("lock_on_rocket"):
+            # sea
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,1,680,380), pmax=space2screen(340,1,680,380), color=[0,100,255,255])
+            draw_text(drawing="vis_canvas", pos=[space2screen(-340,1,680,380)[0], space2screen(340,1,680,380)[1] - 14], text="Sea Level", size=14, color=[0,100,255,255])
+            
+            # ground
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(alt_init/vis_scale)+1,680,380), pmax=space2screen(340,int(alt_init/vis_scale)+1,680,380), color=[0,255,0,255])
+            draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(alt_init/vis_scale)+1,680,380)[0], space2screen(-340,int(alt_init/vis_scale),680,380)[1] - 14], text="Ground", size=14, color=[0,255,0,255])
+
+            # rocket
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)+1,680,380), pmax=space2screen(0,int(alt/vis_scale)+5,680,380), color=[200,0,0,255])
+
+            # plume
+            if is_accelerating_up:
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)-2,680,380), pmax=space2screen(0,int(alt/vis_scale)+1,680,380), color=[200,150,10,255])
+
+            # Karman line
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(100000/vis_scale),680,380), pmax=space2screen(340,int(100000/vis_scale),680,380), color=[255,100,255,128])
+            draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(100000/vis_scale),680,380)[0], space2screen(-340,int(100000/vis_scale),680,380)[1] - 14], text="Karman Line", size=14, color=[255,100,255,128])
+
+        else:
+            -int((alt/vis_scale))
+            
+            # sea
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int(alt/vis_scale), 680, 380), pmax=space2screen(340, 170-int(alt/vis_scale), 680, 380), color=[0,100,255,255])
+            draw_text(drawing="vis_canvas", pos=space2screen(-340, 170-int(alt/vis_scale)+14, 680, 380), text="Sea Level", size=14, color=[0,100,255,255])
+            
+            # ground
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int((alt-alt_init)/vis_scale), 680, 380), pmax=space2screen(340, 170-int((alt-alt_init)/vis_scale), 680, 380), color=[0,255,0,255])
+            draw_text(drawing="vis_canvas", pos=space2screen(-340, 170-int((alt-alt_init)/vis_scale)+14, 680, 380), text="Ground", size=14, color=[0,255,0,255])
+
+            # rocket
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,170,680,380), pmax=space2screen(0,175,680,380), color=[200,0,0,255])
+
+            # plume
+            if is_accelerating_up:
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,165,680,380), pmax=space2screen(0,170,680,380), color=[200,150,10,255])
+
+            # Karman line
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170+int((100000-alt)/vis_scale), 680, 380), pmax=space2screen(340, 170+int((100000-alt)/vis_scale), 680, 380), color=[255,100,255,128])
+            draw_text(drawing="vis_canvas", pos=space2screen(-340, 170+int((100000-alt)/vis_scale)+14, 680, 380), text="Karman Line", size=14, color=[255,100,255,128])
+        # --- --- --- --- --- ---
+
         if progress_loop < 1.0:
             progress_loop = progress_loop + 0.01
         else:
@@ -504,6 +553,7 @@ def simulateTraj():
             vel = vel + gravity * time_increment + drag/mass * time_increment
 
         alt = alt + vel * time_increment
+        alt_g = alt - alt_init
         accel = thrust/mass + gravity + drag/mass
         isp = (thrust)/(mdot * 9.80665)
         drag, dyn_press = calc_drag(vel, alt)
@@ -535,8 +585,25 @@ def simulateTraj():
             set_value(name="progress", value=0)
             hide_item("progress_bar")
             setProgressBarOverlay("")
+
+            set_value(name="alt", value=alt_init)
+            set_value(name="alt_g", value="IMPACT!")
+            set_value(name="vel", value=vel)
+            set_value(name="time", value=time)
             
             break
+
+        # reduce computation speed to real-time if user prefers
+        if get_value("sim_mode"):
+            if get_value("realtime_graph"):
+                t.sleep(time_increment*0.8)
+            else:
+                t.sleep(time_increment)
+        
+        set_value(name="alt", value=alt)
+        set_value(name="alt_g", value=alt_g)
+        set_value(name="vel", value=vel)
+        set_value(name="time", value=time)
 
         if get_value("realtime_graph"):
             add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
@@ -567,6 +634,13 @@ def simulateTraj():
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                    USER INTERFACE
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def space2screen(space_x, space_y, screen_width, screen_height):
+    
+    screen_x = space_x + screen_width/2
+    screen_y = -space_y + screen_height
+
+    return [screen_x, screen_y]
 
 # hacky function to update progress bar overlay text
 # because dearpygui.simple doesn't have such a solution
@@ -624,24 +698,54 @@ with window("Input", width=550, height=360, no_close=True):
     add_input_text(name = "exit_area_field", label = "Nozzle Exit Area (m^2)")
     add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.01")
     add_spacing(count=6)
-    add_button("Simulate Trajectory", callback = simulateTraj)
-    add_same_line()
-    add_checkbox(name = "realtime_graph", label = "Update graphs in real-time", tip="Looks really cool but reduces performance.")
-    add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable the terrible drag model", tip="DON'T TRUST THIS!")
     add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.")
     add_input_text(name = "drag_coeff_field", label = "Drag Coefficient")
+    add_spacing(count=6)
+    add_text("Simulation Mode:")
+    add_radio_button(name="sim_mode", items=["Quick Computation","Real-time Visualization"], default_value=0)
+    add_spacing(count=6)
+    add_button("Simulate Trajectory", callback = simulateTraj)
+    add_same_line()
+    add_checkbox(name = "realtime_graph", label = "Update graphs every cycle", tip="Looks really cool but reduces performance.")
 
 #OUTPUTS WINDOW
 with window("Output", width=700, height=560, no_close=True):
     set_window_pos("Output", 570, 80)
 
-    add_input_text(name="alt_max_output", label="Max. Altitude (m)", source="alt_max", readonly=True, enabled=False)
-    add_input_text(name="max_vel_output", label="Max. Velocity (m/s)", source="vel_max", readonly=True, enabled=False)
-    add_input_text(name="flight_time_output", label="Flight Time (s)", source="flight_time", readonly=True, enabled=False)
-    
-    add_tab_bar(name="output_tabs")
+    add_tab_bar(name="graph_switch")
+    end("graph_switch")
+    add_tab(name="graphs_tab", label="Graphs", parent="graph_switch")
+    end("graphs_tab")
+    add_tab(name="vis_tab", label="Visualization", parent="graph_switch")
+    end("vis_tab")
+
+    # VISUALIZER
+    add_input_text(name="alt_max_output", label="Max. Altitude (m)", source="alt_max", readonly=True, enabled=False, parent="graphs_tab")
+    add_input_text(name="max_vel_output", label="Max. Velocity (m/s)", source="vel_max", readonly=True, enabled=False, parent="graphs_tab")
+    add_input_text(name="flight_time_output", label="Flight Time (s)", source="flight_time", readonly=True, enabled=False, parent="graphs_tab")
+
+    add_input_text(name="alt_output", label="Altitude ASL (m)", source="alt", readonly=True, enabled=False, parent="vis_tab")
+    add_input_text(name="alt_g_output", label="Altitude AGL (m)", source="alt_g", readonly=True, enabled=False, parent="vis_tab")
+    add_input_text(name="vel_output", label="Velocity (m/s)", source="vel", readonly=True, enabled=False, parent="vis_tab")
+    add_input_text(name="time_output", label="Mission Elapsed Time (s)", source="time", readonly=True, enabled=False, parent="vis_tab")
+
+    add_slider_float(name="vis_scale_field", label="Scale (m/pixel)",
+                     min_value=1.0, max_value=750.0, default_value=15.0,
+                     clamped=True, parent="vis_tab", width=300)
+
+    add_same_line(parent="vis_tab")
+    add_checkbox(name="lock_on_rocket", label="Lock View on Rocket", parent="vis_tab")
+
+    add_drawing("vis_canvas", parent="vis_tab", width=680, height=380)
+    clear_drawing("vis_canvas")
+    draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,1,680,380), pmax=space2screen(340,1,680,380), color=[0,100,255,255])
+    draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,1,680,380), pmax=space2screen(0,5,680,380), color=[200,0,0,255])
+
+    # GRAPHS
+    add_tab_bar(name="output_tabs", parent="graphs_tab")
     end("output_tabs")
+    
     add_tab(name="alt_tab", label="Altitude", parent="output_tabs")
     end("alt_tab")
     add_tab(name="vel_tab", label="Velocity", parent="output_tabs")
