@@ -1,7 +1,7 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 #   SINGLE STAGE ONLY (for now)
 
-version = "1.0.2"
+version = "1.0.3"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -598,10 +598,13 @@ def simulateTraj():
         # reduce computation speed to real-time if user prefers
         if get_value("sim_mode"):
             cycle_dt = t.perf_counter() - cycle_start
-            if get_value("realtime_graph"):
-                t.sleep((time_increment-cycle_dt)*(1/time))
-            else:
-                t.sleep(time_increment-cycle_dt)
+            try:
+                if get_value("realtime_graph"):
+                    t.sleep((time_increment-cycle_dt)*(1/time))
+                else:
+                    t.sleep(time_increment-cycle_dt)
+            except:
+                log_warning("cycle_dt < 0", logger="Logs")
         
         set_value(name="alt", value=alt)
         set_value(name="alt_g", value=alt_g)
