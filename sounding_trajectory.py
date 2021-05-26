@@ -1,7 +1,6 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
-#   SINGLE STAGE ONLY (for now)
 
-version = "1.0.3"
+version = "1.1.0"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -29,6 +28,19 @@ last_exit_area = None
 last_cross_sec = None
 last_drag_coeff = None
 last_drag_model = None
+
+last_drogue_enabled = None
+last_drogue_deploy_alt = None
+last_drogue_deploy_time = None
+last_drogue_area = None
+last_drogue_coeff = None
+last_drogue_mass = None
+
+last_chute_enabled = None
+last_chute_deploy_alt = None
+last_chute_deploy_time = None
+last_chute_area = None
+last_chute_coeff = None
 
 last_results = []
 
@@ -82,9 +94,37 @@ def importFile():
             set_value(name="drag_model_checkbox", value=False)
             set_value(name="cross_sec_field", value="Drag model disabled.")
             set_value(name="drag_coeff_field", value="Drag model disabled.")
+
+        if import_lines[15] == "Drogue chute ENABLED.\n":
+            set_value(name="drogue_checkbox", value=True)
+            set_value(name="drogue_deploy_alt_field", value=import_lines[16][34:-3])
+            set_value(name="drogue_deploy_time_field", value=import_lines[17][30:-3])
+            set_value(name="drogue_area_field", value=import_lines[18][19:-5])
+            set_value(name="drogue_coeff_field", value=import_lines[19][31:-1])
+            set_value(name="drogue_mass_field", value=import_lines[20][19:-4])
+        else:
+            set_value(name="drogue_checkbox", value=False)
+            set_value(name="drogue_deploy_alt_field", value="Drogue chute disabled.")
+            set_value(name="drogue_deploy_time_field", value="Drogue chute disabled.")
+            set_value(name="drogue_area_field", value="Drogue chute disabled.")
+            set_value(name="drogue_coeff_field", value="Drogue chute disabled.")
+            set_value(name="drogue_mass_field", value="Drogue chute disabled.")
+
+        if import_lines[21] == "Main chute ENABLED.\n":
+            set_value(name="chute_checkbox", value=True)
+            set_value(name="chute_deploy_alt_field", value=import_lines[22][32:-3])
+            set_value(name="chute_deploy_time_field", value=import_lines[23][28:-3])
+            set_value(name="chute_area_field", value=import_lines[24][17:-5])
+            set_value(name="chute_coeff_field", value=import_lines[25][29:-1])
+        else:
+            set_value(name="chute_checkbox", value=False)
+            set_value(name="chute_deploy_alt_field", value="Main chute disabled.")
+            set_value(name="chute_deploy_time_field", value="Main chute disabled.")
+            set_value(name="chute_area_field", value="Main chute disabled.")
+            set_value(name="chute_coeff_field", value="Main chute disabled.")
             
     except:
-        log_error("Import failed. Check file formatting.", logger="Logs")
+        log_error("Import failed. Check file version or formatting.", logger="Logs")
         return
 
     log_info("Import successful.", logger="Logs")
@@ -129,11 +169,16 @@ def exportFile():
             # [9]: isp_list
             # [10]: drag_list
             # [11]: dyn_press_list
+            # [12]: drogue_deployment_list
+            # [13]: chute_deployment_list
 
             setProgressBarOverlay("Preparing data for export...")
+            progress_bar_divisions = 8
+            progress_step = 0
 
             global last_drag_model
-            
+
+            # prepare data lists
             export_thrust = {'Time (s)': last_results[1],'Thrust (N)': last_results[0]}
             export_alt = {'Time (s)': last_results[1],'Altitude (m)': last_results[2]}
             export_vel = {'Time (s)': last_results[1],'Velocity (m/s)': last_results[3]}
@@ -142,9 +187,17 @@ def exportFile():
             export_accel = {'Time (s)': last_results[1],'Acceleration (m/s^2)': last_results[8]}
             export_isp = {'Time (s)': last_results[1],'Specific Impulse (s)': last_results[9]}
             if last_drag_model:
+                progress_bar_divisions = progress_bar_divisions + 2
                 export_drag = {'Time (s)': last_results[1],'Drag (N)': last_results[10]}
                 export_dyn_press = {'Time (s)': last_results[1],'Dynamic Pressure (Pa)': last_results[11]}
+            if last_drogue_enabled:
+                progress_bar_divisions = progress_bar_divisions + 1
+                export_drogue = {'Time(s)': last_results[1],'Drogue Deployment': last_results[12]}
+            if last_chute_enabled:
+                progress_bar_divisions = progress_bar_divisions + 1
+                export_chute = {'Time(s)': last_results[1],'Main Chute Deployment': last_results[13]}
 
+            # create dataframes
             df_alt = pd.DataFrame(export_alt)
             df_vel = pd.DataFrame(export_vel)
             df_accel = pd.DataFrame(export_accel)
@@ -155,36 +208,60 @@ def exportFile():
             if last_drag_model:
                 df_drag = pd.DataFrame(export_drag)
                 df_dyn_press = pd.DataFrame(export_dyn_press)
+            if last_drogue_enabled:
+                df_drogue = pd.DataFrame(export_drogue)
+            if last_chute_enabled:
+                df_chute = pd.DataFrame(export_chute)
 
+            # write to xlsx file
             with pd.ExcelWriter(exportFile) as writer:
-                set_value(name="progress", value=0.11)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing altitude...")
                 df_alt.to_excel(writer, sheet_name = 'Altitude')
-                set_value(name="progress", value=0.22)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing velocity...")
                 df_vel.to_excel(writer, sheet_name = 'Velocity')
-                set_value(name="progress", value=0.33)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing acceleration...")
                 df_accel.to_excel(writer, sheet_name = 'Acceleration')
-                set_value(name="progress", value=0.44)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing thrust...")
                 df_thrust.to_excel(writer, sheet_name = 'Thrust')
-                set_value(name="progress", value=0.55)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing ext. press...")
                 df_external_pressure.to_excel(writer, sheet_name = 'Ext. Press.')
-                set_value(name="progress", value=0.66)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing gravity...")
                 df_gravity.to_excel(writer, sheet_name = 'Gravity')
-                set_value(name="progress", value=0.77)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing Isp...")
                 df_isp.to_excel(writer, sheet_name = 'Isp')
-                set_value(name="progress", value=0.88)
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 if last_drag_model:
                     setProgressBarOverlay("Writing drag...")
                     df_drag.to_excel(writer, sheet_name = 'Drag')
-                    set_value(name="progress", value=0.90)
+                    progress_step = progress_step + 1
+                    set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                     setProgressBarOverlay("Writing dyn. press...")
                     df_dyn_press.to_excel(writer, sheet_name = 'Dyn. Press.')
+                if last_drogue_enabled:
+                    progress_step = progress_step + 1
+                    set_value(name="progress", value=float(progress_step/progress_bar_divisions))
+                    setProgressBarOverlay("Writing drogue deploy...")
+                    df_drogue.to_excel(writer, sheet_name = 'Drogue Deployment')
+                if last_chute_enabled:
+                    progress_step = progress_step + 1
+                    set_value(name="progress", value=float(progress_step/progress_bar_divisions))
+                    setProgressBarOverlay("Writing chute deploy...")
+                    df_chute.to_excel(writer, sheet_name = 'Main Chute Deployment')
 
                 setProgressBarOverlay("Finishing xlsx export...")
   
@@ -194,9 +271,11 @@ def exportFile():
             log_error("Excel export failed.", logger = "Logs")
 
         setProgressBarOverlay("Saving inputs to TXT...")
+        
         # Save given inputs to TXT
         try:
-            set_value(name="progress", value=0.96)
+            progress_step = progress_step + 1
+            set_value(name="progress", value=float(progress_step/progress_bar_divisions))
             inputSaveFile = exportFile[0:-5] + ".txt"
             result_file = open(inputSaveFile, "w")
             result_file.write("Save file version " + version + "\n\n")
@@ -228,6 +307,51 @@ def exportFile():
                 result_file.write("Drag model ENABLED.\n")
             else:
                 result_file.write("Drag model DISABLED.\n")
+            if last_drogue_enabled:
+                result_file.write("Drogue chute ENABLED.\n")
+                result_file.write("Drogue chute deployment altitude: ")
+                result_file.write(str(last_drogue_deploy_alt) + " m\n")
+                result_file.write("Drogue chute deployment time: ")
+                result_file.write(str(last_drogue_deploy_time) + " s\n")
+                result_file.write("Drogue chute area: ")
+                result_file.write(str(last_drogue_area) + " m^2\n")
+                result_file.write("Drogue chute drag coefficient: ")
+                result_file.write(str(last_drogue_coeff) + "\n")
+                result_file.write("Drogue chute mass: ")
+                result_file.write(str(last_drogue_mass) + " kg\n")
+            else:
+                result_file.write("Drogue chute DISABLED.\n")
+                result_file.write("Drogue chute deployment altitude: ")
+                result_file.write(str(last_drogue_deploy_alt) + "\n")
+                result_file.write("Drogue chute deployment time: ")
+                result_file.write(str(last_drogue_deploy_time) + "\n")
+                result_file.write("Drogue chute area: ")
+                result_file.write(str(last_drogue_area) + "\n")
+                result_file.write("Drogue chute drag coefficient: ")
+                result_file.write(str(last_drogue_coeff) + "\n")
+                result_file.write("Drogue chute mass: ")
+                result_file.write(str(last_drogue_mass) + "\n")
+            if last_chute_enabled:
+                result_file.write("Main chute ENABLED.\n")
+                result_file.write("Main chute deployment altitude: ")
+                result_file.write(str(last_chute_deploy_alt) + " m\n")
+                result_file.write("Main chute deployment time: ")
+                result_file.write(str(last_chute_deploy_time) + " s\n")
+                result_file.write("Main chute area: ")
+                result_file.write(str(last_chute_area) + " m^2\n")
+                result_file.write("Main chute drag coefficient: ")
+                result_file.write(str(last_chute_coeff) + "\n")
+            else:
+                result_file.write("Main chute DISABLED.\n")
+                result_file.write("Main chute deployment altitude: ")
+                result_file.write(str(last_chute_deploy_alt) + "\n")
+                result_file.write("Main chute deployment time: ")
+                result_file.write(str(last_chute_deploy_time) + "\n")
+                result_file.write("Main chute area: ")
+                result_file.write(str(last_chute_area) + "\n")
+                result_file.write("Main chute drag coefficient: ")
+                result_file.write(str(last_chute_coeff) + "\n")  
+            
             result_file.write("\nOUTPUTS\n\n")
             result_file.write("Maximum altitude: ")
             result_file.write(str(get_value("alt_max"))+" m\n")
@@ -275,6 +399,9 @@ def simulateTraj():
     # get input values from entry fields
 
     drag_enabled = get_value("drag_model_checkbox")
+
+    drogue_enabled = get_value("drogue_checkbox")
+    chute_enabled = get_value("chute_checkbox")
     
     try:
         eev = float(get_value("eev_field"))
@@ -289,6 +416,30 @@ def simulateTraj():
         if drag_enabled:
             cross_sec = float(get_value("cross_sec_field"))
             drag_coeff = float(get_value("drag_coeff_field"))
+            
+            if chute_enabled:
+                chute_deploy_alt = float(get_value("chute_deploy_alt_field"))
+                chute_deploy_time = float(get_value("chute_deploy_time_field"))
+                chute_area = float(get_value("chute_area_field"))
+                chute_coeff = float(get_value("chute_coeff_field"))
+            else:
+                chute_deploy_alt = -1.0
+                chute_deploy_time = -1.0
+                chute_area = -1.0
+                chute_coeff = -1.0
+                
+            if drogue_enabled:
+                drogue_deploy_alt = float(get_value("drogue_deploy_alt_field"))
+                drogue_deploy_time = float(get_value("drogue_deploy_time_field"))
+                drogue_area = float(get_value("drogue_area_field"))
+                drogue_coeff = float(get_value("drogue_coeff_field"))
+                drogue_mass = float(get_value("drogue_mass_field"))
+            else:
+                drogue_deploy_alt = -1.0
+                drogue_deploy_time = -1.0
+                drogue_area = -1.0
+                drogue_coeff = -1.0
+                
         else:
             cross_sec = -1.0
             drag_coeff = -1.0
@@ -323,17 +474,37 @@ def simulateTraj():
         last_cross_sec = "Drag model disabled."
         last_drag_coeff = "Drag model disabled."
 
-    log_info("Inputs:\n" +
-             "Eff. Ex. Vel: " + str(eev) + " m/s\n"
-             "Mass Flow: " + str(mdot) + " kg/s\n"
-             "Initial Mass: " + str(mass_init) + " kg\n"
-             "Final Mass: " + str(mass_final) + " kg\n"
-             "Initial Alt.: " + str(alt_init) + " m\n"
-             "Exit Press.: " + str(exit_pressure) + " Pa\n"
-             "Exit Area: " + str(exit_area) + " m^2\n"
-             "Time Increment: " + str(time_increment) + " s\n"
-             "Cross Section: " + str(cross_sec) + " m^2", logger = "Logs")
+    global last_drogue_enabled, last_drogue_deploy_alt, last_drogue_deploy_time, last_drogue_area, last_drogue_coeff, last_drogue_mass
 
+    if drogue_enabled:
+        last_drogue_enabled =  True
+        last_drogue_deploy_alt = drogue_deploy_alt
+        last_drogue_deploy_time = drogue_deploy_time
+        last_drogue_area = drogue_area
+        last_drogue_coeff = drogue_coeff
+        last_drogue_mass = drogue_mass
+    else:
+        last_drogue_enabled =  False
+        last_drogue_deploy_alt = "Drogue chute disabled."
+        last_drogue_deploy_time = "Drogue chute disabled."
+        last_drogue_area = "Drogue chute disabled."
+        last_drogue_coeff = "Drogue chute disabled."
+        last_drogue_mass = "Drogue chute disabled."
+
+    global last_chute_enabled, last_chute_deploy_alt, last_chute_deploy_time, last_chute_area, last_chute_coeff
+
+    if chute_enabled:
+        last_chute_enabled = True
+        last_chute_deploy_alt = chute_deploy_alt
+        last_chute_deploy_time = chute_deploy_time
+        last_chute_area = chute_area
+        last_chute_coeff = chute_coeff
+    else:
+        last_chute_enabled = False
+        last_chute_deploy_alt = "Main recovery chute disabled."
+        last_chute_deploy_time = "Main recovery chute disabled."
+        last_chute_area = "Main recovery chute disabled."
+        last_chute_coeff = "Main recovery chute disabled."
 
     # Calculation sub-functions
 
@@ -387,12 +558,22 @@ def simulateTraj():
         
         return press
 
-    # VERY TERRIBLE approximation of drag force on the vessel
+    # Approximate drag force on the vessel
     def calc_drag(velocity, altitude):
 
-        if get_value("drag_model_checkbox"):
-            # drag_coeff = 0.1
-            drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)
+        if drag_enabled:
+
+            if drogue_deployment > 0.0 and not drogue_released:
+                airflow_area = cross_sec + (drogue_area - cross_sec) * drogue_deployment
+                drag = (0.5 * alt2dens(altitude) * velocity**2 * drogue_coeff * airflow_area) * -sign(velocity)
+                
+            elif chute_deployment > 0.0:
+                airflow_area = cross_sec + (chute_area - cross_sec) * chute_deployment
+                drag = (0.5 * alt2dens(altitude) * velocity**2 * chute_coeff * airflow_area) * -sign(velocity)
+                
+            else:
+                drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)
+                
             dynamic_press = 0.5 * alt2dens(altitude) * velocity**2
 
             return drag, dynamic_press
@@ -438,9 +619,17 @@ def simulateTraj():
     dyn_press_list = []
     density_list = []
 
+    drogue_deployment_list = []
+    chute_deployment_list = []
+
     is_going_up = True
     is_accelerating_up = True
     is_launching = True
+
+    drogue_deployment = 0.0
+    chute_deployment = 0.0
+
+    drogue_released = False
 
     show_item("progress_bar")
     progress_loop = 0
@@ -468,6 +657,14 @@ def simulateTraj():
             # rocket
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)+1,680,380), pmax=space2screen(0,int(alt/vis_scale)+5,680,380), color=[200,0,0,255])
 
+            # drogue
+            if drogue_deployment > 0 and not drogue_released:
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-2,int(alt/vis_scale)+6,680,380), pmax=space2screen(2,int(alt/vis_scale)+8,680,380), color=[255,10,10,255*drogue_deployment])
+
+            # main chute
+            if chute_deployment > 0:
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-4,int(alt/vis_scale)+6,680,380), pmax=space2screen(4,int(alt/vis_scale)+10,680,380), color=[255,10,10,255*chute_deployment])
+
             # plume
             if is_accelerating_up:
                 draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)-2,680,380), pmax=space2screen(0,int(alt/vis_scale)+1,680,380), color=[200,150,10,255])
@@ -477,7 +674,7 @@ def simulateTraj():
             draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(100000/vis_scale),680,380)[0], space2screen(-340,int(100000/vis_scale),680,380)[1] - 14], text="Karman Line", size=14, color=[255,100,255,128])
 
         else:
-            -int((alt/vis_scale))
+            
             
             # sea
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int(alt/vis_scale), 680, 380), pmax=space2screen(340, 170-int(alt/vis_scale), 680, 380), color=[0,100,255,255])
@@ -489,6 +686,14 @@ def simulateTraj():
 
             # rocket
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,170,680,380), pmax=space2screen(0,175,680,380), color=[200,0,0,255])
+
+            # drogue
+            if drogue_deployment > 0 and not drogue_released:
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-2,176,680,380), pmax=space2screen(2,178,680,380), color=[255,10,10,255*drogue_deployment])
+
+            # main chute
+            if chute_deployment > 0:
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-4,176,680,380), pmax=space2screen(4,180,680,380), color=[255,10,10,255*chute_deployment])
 
             # plume
             if is_accelerating_up:
@@ -517,6 +722,15 @@ def simulateTraj():
                 set_value(name="vel_max", value="")
                 set_value(name="flight_time", value="")
                 return
+
+            # main chute deployment before main
+            if drogue_enabled and chute_enabled and drogue_deploy_alt <= chute_deploy_alt:
+                log_error("Attempt to deploy main chute before drogue!", logger = "Logs")
+                delete_series(series="Altitude", plot="alt_plot")
+                set_value(name="alt_max", value="Main chute deployment altitude is larger than")
+                set_value(name="vel_max", value="drogue chute deployment altitude.")
+                set_value(name="flight_time", value="Simulation terminated.")
+                return
             
             is_launching = False
 
@@ -534,6 +748,12 @@ def simulateTraj():
         dyn_press_list.append(dyn_press)
         density_list.append(density)
 
+        if not drogue_released:
+            drogue_deployment_list.append(drogue_deployment)
+        else: 
+            drogue_deployment_list.append(0.0)
+        chute_deployment_list.append(chute_deployment)
+            
         density = alt2dens(alt)
         
         time = time + time_increment
@@ -553,6 +773,18 @@ def simulateTraj():
             mass = mass - mdot * time_increment
         else:
             vel = vel + gravity * time_increment + drag/mass * time_increment
+
+        if drogue_enabled and not is_going_up and alt <= drogue_deploy_alt:
+            if drogue_deployment < 1.0:
+                drogue_deployment = drogue_deployment + time_increment/drogue_deploy_time
+
+        if chute_enabled and not is_going_up and alt <= chute_deploy_alt:
+            if drogue_enabled and not drogue_released:
+                drogue_released = True
+                mass = mass - drogue_mass
+                
+            if chute_deployment < 1.0:
+                chute_deployment = chute_deployment + time_increment/chute_deploy_time
 
         alt = alt + vel * time_increment
         alt_g = alt - alt_init
@@ -633,9 +865,13 @@ def simulateTraj():
     add_line_series(name="Drag", plot="drag_plot", x=time_list, y=drag_list)
     add_line_series(name="Dynamic Pressure", plot="dyn_press_plot", x=time_list, y=dyn_press_list)
     #add_line_series(name="Density", plot="density_plot", x=time_list, y=density_list)
+    add_line_series(name="Drogue Deployment", plot="drogue_deployment_plot", x=time_list, y=drogue_deployment_list)
+    add_line_series(name="Chute Deployment", plot="chute_deployment_plot", x=time_list, y=chute_deployment_list)
 
     global last_results
-    last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list, external_pressure_list, gravity_list, accel_list, isp_list, drag_list, dyn_press_list]
+    last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list,
+                    external_pressure_list, gravity_list, accel_list, isp_list, drag_list, dyn_press_list,
+                    drogue_deployment_list, chute_deployment_list]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                    USER INTERFACE
@@ -702,11 +938,24 @@ with window("Input", width=550, height=360, no_close=True):
     add_input_text(name = "alt_init_field", label = "Initial Altitude (m)")
     add_input_text(name = "exit_pressure_field", label = "Exhaust Exit Press. (Pa)")
     add_input_text(name = "exit_area_field", label = "Nozzle Exit Area (m^2)")
-    add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.01")
+    add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.001")
     add_spacing(count=6)
-    add_checkbox(name = "drag_model_checkbox", label = "Enable the terrible drag model", tip="DON'T TRUST THIS!")
+    add_checkbox(name = "drag_model_checkbox", label = "Enable drag model")
     add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.")
     add_input_text(name = "drag_coeff_field", label = "Drag Coefficient")
+    add_spacing(count=6)
+    add_checkbox(name = "drogue_checkbox", label = "Enable drogue chute")
+    add_input_text(name = "drogue_deploy_alt_field", label="Drogue Deploy Altitude (m)")
+    add_input_text(name = "drogue_deploy_time_field", label="Drogue Deployment Time (s)", tip="The time it takes for the chute to unfold.")
+    add_input_text(name = "drogue_area_field", label="Drogue Chute Area (m^2)")
+    add_input_text(name = "drogue_coeff_field", label="Drogue Chute Drag Coeff.")
+    add_input_text(name =  "drogue_mass_field", label="Drogue Chute Mass (kg)", tip="If there is a main chute, we will release drogue.")
+    add_spacing(count=4)
+    add_checkbox(name = "chute_checkbox", label = "Enable main recovery chute")
+    add_input_text(name = "chute_deploy_alt_field", label="Main Chute Deploy Altitude (m)")
+    add_input_text(name = "chute_deploy_time_field", label="Main Chute Deployment Time (s)", tip="The time it takes for the chute to unfold.")
+    add_input_text(name = "chute_area_field", label="Main Chute Area (m^2)")
+    add_input_text(name = "chute_coeff_field", label="Main Chute Drag Coeff.")
     add_spacing(count=6)
     add_text("Simulation Mode:")
     add_radio_button(name="sim_mode", items=["Quick Computation","Real-time Visualization"], default_value=0)
@@ -772,6 +1021,11 @@ with window("Output", width=700, height=560, no_close=True):
     end("dyn_press_tab")
     #add_tab(name="density_tab", label="Density", parent="output_tabs")
     #end("density_tab")
+
+    add_tab(name="drogue_deployment_tab", label="Drogue Deployment", parent="output_tabs")
+    end("drogue_deployment_tab")
+    add_tab(name="chute_deployment_tab", label="Chute Deployment", parent="output_tabs")
+    end("chute_deployment_tab")
     
     add_input_text(name = "tt_apoapsis_output_field", label = "Time to Apoapsis (s)",
                    source="tt_apoapsis", readonly=True, enabled=False, parent ="alt_tab")
@@ -818,6 +1072,11 @@ with window("Output", width=700, height=560, no_close=True):
 
     #add_plot(name="density_plot", label="Density vs Time",
     #         x_axis_name="Time (s)", y_axis_name = "Density (kg/m^3)", anti_aliased=True, parent="density_tab")
+
+    add_plot(name="drogue_deployment_plot", label="Drogue Deplyoment",
+             x_axis_name="Time (s)", y_axis_name= "Deployment Status", anti_aliased=True, parent="drogue_deployment_tab")
+    add_plot(name="chute_deployment_plot", label="Chute Deplyoment",
+             x_axis_name="Time (s)", y_axis_name= "Deployment Status", anti_aliased=True, parent="chute_deployment_tab")
 
 #LOG WINDOW
 with window("Log", width=550, height=190, no_close=True):
