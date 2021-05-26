@@ -1,6 +1,6 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.1.0"
+version = "1.1.1"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -931,31 +931,31 @@ with window("Input", width=550, height=360, no_close=True):
     set_window_pos("Input", 10, 80)
     add_text("Enter parameters in float values.")
     add_spacing(count=6)
-    add_input_text(name = "eev_field", label = "Effective Exhaust Vel. (m/s)")
-    add_input_text(name = "mdot_field", label = "Mass Flow (kg/s)")
-    add_input_text(name = "mass_init_field", label = "Initial Mass (kg)", tip="WET mass, not dry mass")
-    add_input_text(name = "mass_final_field", label = "Final Mass (kg)", tip="Enter vehicle dry mass if all propellant will be used.")
-    add_input_text(name = "alt_init_field", label = "Initial Altitude (m)")
-    add_input_text(name = "exit_pressure_field", label = "Exhaust Exit Press. (Pa)")
-    add_input_text(name = "exit_area_field", label = "Nozzle Exit Area (m^2)")
-    add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.001")
+    add_input_text(name = "eev_field", label = "Effective Exhaust Vel. (m/s)", width=250)
+    add_input_text(name = "mdot_field", label = "Mass Flow (kg/s)", width=250)
+    add_input_text(name = "mass_init_field", label = "Initial Mass (kg)", tip="WET mass, not dry mass", width=250)
+    add_input_text(name = "mass_final_field", label = "Final Mass (kg)", tip="Enter vehicle dry mass if all propellant will be used.", width=250)
+    add_input_text(name = "alt_init_field", label = "Initial Altitude (m)", width=250)
+    add_input_text(name = "exit_pressure_field", label = "Exhaust Exit Press. (Pa)", width=250)
+    add_input_text(name = "exit_area_field", label = "Nozzle Exit Area (m^2)", width=250)
+    add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.001", width=250)
     add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable drag model")
-    add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.")
-    add_input_text(name = "drag_coeff_field", label = "Drag Coefficient")
+    add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.", width=250)
+    add_input_text(name = "drag_coeff_field", label = "Drag Coefficient", width=250)
     add_spacing(count=6)
     add_checkbox(name = "drogue_checkbox", label = "Enable drogue chute")
-    add_input_text(name = "drogue_deploy_alt_field", label="Drogue Deploy Altitude (m)")
-    add_input_text(name = "drogue_deploy_time_field", label="Drogue Deployment Time (s)", tip="The time it takes for the chute to unfold.")
-    add_input_text(name = "drogue_area_field", label="Drogue Chute Area (m^2)")
-    add_input_text(name = "drogue_coeff_field", label="Drogue Chute Drag Coeff.")
-    add_input_text(name =  "drogue_mass_field", label="Drogue Chute Mass (kg)", tip="If there is a main chute, we will release drogue.")
+    add_input_text(name = "drogue_deploy_alt_field", label="Drogue Deploy Altitude (m)", width=250)
+    add_input_text(name = "drogue_deploy_time_field", label="Drogue Deployment Time (s)", tip="The time it takes for the chute to unfold.", width=250)
+    add_input_text(name = "drogue_area_field", label="Drogue Chute Area (m^2)", width=250)
+    add_input_text(name = "drogue_coeff_field", label="Drogue Chute Drag Coeff.", width=250)
+    add_input_text(name =  "drogue_mass_field", label="Drogue Chute Mass (kg)", tip="If there is a main chute, we will release drogue.", width=250)
     add_spacing(count=4)
     add_checkbox(name = "chute_checkbox", label = "Enable main recovery chute")
-    add_input_text(name = "chute_deploy_alt_field", label="Main Chute Deploy Altitude (m)")
-    add_input_text(name = "chute_deploy_time_field", label="Main Chute Deployment Time (s)", tip="The time it takes for the chute to unfold.")
-    add_input_text(name = "chute_area_field", label="Main Chute Area (m^2)")
-    add_input_text(name = "chute_coeff_field", label="Main Chute Drag Coeff.")
+    add_input_text(name = "chute_deploy_alt_field", label="Main Chute Deploy Altitude (m)", width=250)
+    add_input_text(name = "chute_deploy_time_field", label="Main Chute Deployment Time (s)", tip="The time it takes for the chute to unfold.", width=250)
+    add_input_text(name = "chute_area_field", label="Main Chute Area (m^2)", width=250)
+    add_input_text(name = "chute_coeff_field", label="Main Chute Drag Coeff.", width=250)
     add_spacing(count=6)
     add_text("Simulation Mode:")
     add_radio_button(name="sim_mode", items=["Quick Computation","Real-time Visualization"], default_value=0)
@@ -1073,9 +1073,9 @@ with window("Output", width=700, height=560, no_close=True):
     #add_plot(name="density_plot", label="Density vs Time",
     #         x_axis_name="Time (s)", y_axis_name = "Density (kg/m^3)", anti_aliased=True, parent="density_tab")
 
-    add_plot(name="drogue_deployment_plot", label="Drogue Deplyoment",
+    add_plot(name="drogue_deployment_plot", label="Drogue Deployment",
              x_axis_name="Time (s)", y_axis_name= "Deployment Status", anti_aliased=True, parent="drogue_deployment_tab")
-    add_plot(name="chute_deployment_plot", label="Chute Deplyoment",
+    add_plot(name="chute_deployment_plot", label="Chute Deployment",
              x_axis_name="Time (s)", y_axis_name= "Deployment Status", anti_aliased=True, parent="chute_deployment_tab")
 
 #LOG WINDOW
