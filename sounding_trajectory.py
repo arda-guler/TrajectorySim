@@ -1,6 +1,6 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.1.1"
+version = "1.2.0"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -47,6 +47,12 @@ last_results = []
 # graph display toggles
 is_ground_displayed = False
 is_karman_displayed = False
+
+# atmospheric density lookup file has values in kg/m^3, with steps of 100 meters
+# retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
+model_filename = "atm_density_model.txt"
+model_file = open(model_filename, "r")
+model_lines = model_file.readlines()
 
 set_value(name="progress", value=0)
 
@@ -518,12 +524,6 @@ def simulateTraj():
         if altitude > 85000:
             return 0.0
         else:
-            # atmospheric density lookup file has values in kg/m^3, with steps of 100 meters
-            # retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
-            model_filename = "atm_density_model.txt"
-            model_file = open(model_filename, "r")
-            model_lines = model_file.readlines()
-
             alt_low = int(altitude/100)
             alt_high = alt_low + 1
 
