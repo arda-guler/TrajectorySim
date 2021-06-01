@@ -9,6 +9,8 @@ Lower time increments result in higher precision. <0.01 is suggested.
 
 sounding_trajectory.py -- main simulation script
 
-atm_density_model.txt -- Earth atmospheric density profile (US Standard Atmosphere 1976)
-                      -- density in units of kg/m^3 with 100m steps (up to about 86km)
+ApogeePredict.cpp      -- instant apogee prediction routine
+
+atm_density_model.txt  -- Earth atmospheric density profile (US Standard Atmosphere 1976)
+                       -- density in units of kg/m^3 with 100m steps (up to about 86km)
 					  

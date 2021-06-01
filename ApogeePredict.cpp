@@ -11,7 +11,7 @@ int readAtmosphereModel() {
 
 	errno_t fop = fopen_s(&fp, "atm_density_model.txt", "r");
 	if (fp == NULL) {
-		printf("Failed to read atmospheric model file.\n\n");
+		printf("Failed to read atmospheric density model file.\n\n");
 		return 1;
 	}
 
@@ -23,6 +23,7 @@ int readAtmosphereModel() {
 	return 0;
 }
 
+//returns sign of a float value
 int sign_f(float num) {
 	if (num >= 0) {
 		return 1;
@@ -32,11 +33,17 @@ int sign_f(float num) {
 	}
 }
 
+//get density(kg/m^3) by altitude(m)
 float alt2dens(float altitude) {
+	//we don't have data for altitudes above 86km
+	//(density at that point is practically zero anyway :P)
 	if (altitude > 85000) {
 		return 0.0f;
 	}
 	else {
+		/*density values are provided in steps of 100 metres
+		of altitude - we will do linear interpolation to 
+		get any values in between */
 		int alt_low = (int)(altitude / 100);
 		int alt_high = alt_low + 1;
 
@@ -49,6 +56,7 @@ float alt2dens(float altitude) {
 	}
 }
 
+//get pressure(Pa) by altitude(m)
 float alt2press(float altitude) {
 
 	int temp = 0;
@@ -85,6 +93,7 @@ float calcGrav(float altitude) {
 	return 9.80665 * pow((6369000 / (6369000 + altitude)), 2);
 }
 
+//this is like a Riemann sum basically
 float calcApogee(float alt_inst, float vel_inst, float mass_inst) {
 
 	float alt = alt_inst;
@@ -113,15 +122,22 @@ float calcApogee(float alt_inst, float vel_inst, float mass_inst) {
 			return alt_max;
 		}
 	}
-
 }
 
 float main() {
 
+	/*read density model file at program start
+	and store values in an array to reduce
+	the time spent on looking up values from
+	the table */
 	readAtmosphereModel();
 
 calc:
 
+	/*in the actual guidance scenario, these
+	values will be provided by the IMU
+	instant value calculator */
+	
 	printf("Instantaneous altitude (m): ");
 	scanf_s("%f", &alt);
 	printf("Instantaneous velocity (m/s): ");
@@ -139,6 +155,12 @@ calc:
 
 	printf("Apogee (m): %f\n", apogee);
 	printf("Calculation time (s): %f\n\n", time_spent);
+	
+	/* in the actual guidance scenario, the
+	computer will be instructed to send the
+	engine shutdown signal if predicted
+	apogee is at or above the target apogee
+	and the prediction program will quit */
 
 	goto calc;
 
