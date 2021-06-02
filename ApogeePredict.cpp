@@ -42,7 +42,7 @@ float alt2dens(float altitude) {
 	}
 	else {
 		/*density values are provided in steps of 100 metres
-		of altitude - we will do linear interpolation to 
+		of altitude - we will do linear interpolation to
 		get any values in between */
 		int alt_low = (int)(altitude / 100);
 		int alt_high = alt_low + 1;
@@ -54,30 +54,6 @@ float alt2dens(float altitude) {
 
 		return interpolated_density;
 	}
-}
-
-//get pressure(Pa) by altitude(m)
-float alt2press(float altitude) {
-
-	int temp = 0;
-	int press = 0;
-
-	if (altitude < 11000) {
-		temp = -131.21 + 0.00299 * altitude;
-		press = 101330 * pow((1 - ((0.0065 * altitude) / (288.15))), ((9.807) / (286.9 * 0.0065)));
-	}
-
-	if (25000 > altitude >= 11000) {
-		temp = -56.46;
-		press = (22.65 * exp(1.73 - 0.000157 * altitude)) * 1000;
-	}
-
-	if (altitude >= 25000) {
-		temp = -131.21 + 0.00299 * altitude;
-		press = (2.488 * pow(((temp + 273.1) / (216.6)), (-11.388))) * 1000;
-	}
-
-	return press;
 }
 
 float calcDrag(float altitude, float velocity) {
@@ -100,7 +76,6 @@ float calcApogee(float alt_inst, float vel_inst, float mass_inst) {
 	float vel = vel_inst;
 	float mass = mass_inst;
 
-	float ext_press = alt2press(alt_inst);
 	float drag = 0;
 	float atm_dens = alt2dens(alt_inst);
 	float gravity = calcGrav(alt_inst);
@@ -117,7 +92,7 @@ float calcApogee(float alt_inst, float vel_inst, float mass_inst) {
 		alt = alt + vel * time_incr;
 		vel = vel + (gravity + drag / mass) * time_incr;
 
-		if (vel < 0) {
+		if (vel <= 0) {
 			float alt_max = alt;
 			return alt_max;
 		}
@@ -137,7 +112,7 @@ calc:
 	/*in the actual guidance scenario, these
 	values will be provided by the IMU
 	instant value calculator */
-	
+
 	printf("Instantaneous altitude (m): ");
 	scanf_s("%f", &alt);
 	printf("Instantaneous velocity (m/s): ");
@@ -155,7 +130,7 @@ calc:
 
 	printf("Apogee (m): %f\n", apogee);
 	printf("Calculation time (s): %f\n\n", time_spent);
-	
+
 	/* in the actual guidance scenario, the
 	computer will be instructed to send the
 	engine shutdown signal if predicted

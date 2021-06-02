@@ -1,6 +1,6 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.2.0"
+version = "1.3.0"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -20,7 +20,7 @@ calc_run_number = 0
 last_eev = None
 last_mdot = None
 last_mass_init = None
-last_mass_final = None
+last_mass_propellant = None
 last_alt_init = None
 last_time_increment = None
 last_exit_pressure = None
@@ -28,6 +28,9 @@ last_exit_area = None
 last_cross_sec = None
 last_drag_coeff = None
 last_drag_model = None
+
+last_target_apogee_enabled = None
+last_target_apogee = None
 
 last_drogue_enabled = None
 last_drogue_deploy_alt = None
@@ -44,15 +47,15 @@ last_chute_coeff = None
 
 last_results = []
 
-# graph display toggles
-is_ground_displayed = False
-is_karman_displayed = False
-
 # atmospheric density lookup file has values in kg/m^3, with steps of 100 meters
 # retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
 model_filename = "atm_density_model.txt"
 model_file = open(model_filename, "r")
 model_lines = model_file.readlines()
+
+# graph display toggles
+is_ground_displayed = False
+is_karman_displayed = False
 
 set_value(name="progress", value=0)
 
@@ -86,7 +89,7 @@ def importFile():
         set_value(name="eev_field", value=import_lines[4][28:-5])
         set_value(name="mdot_field", value=import_lines[5][11:-6])
         set_value(name="mass_init_field", value=import_lines[6][14:-4])
-        set_value(name="mass_final_field", value=import_lines[7][12:-4])
+        set_value(name="mass_propellant_field", value=import_lines[7][17:-4])
         set_value(name="alt_init_field", value=import_lines[8][18:-3])
         set_value(name="exit_pressure_field", value=import_lines[9][22:-4])
         set_value(name="exit_area_field", value=import_lines[10][18:-5])
@@ -128,6 +131,13 @@ def importFile():
             set_value(name="chute_deploy_time_field", value="Main chute disabled.")
             set_value(name="chute_area_field", value="Main chute disabled.")
             set_value(name="chute_coeff_field", value="Main chute disabled.")
+
+        if import_lines[26] == "Apogee target SET.\n":
+            set_value(name="target_apogee_checkbox", value=True)
+            set_value(name="target_apogee_field", value=import_lines[27][15:-3])
+        else:
+            set_value(name="target_apogee_checkbox", value=False)
+            set_value(name="target_apogee_field", value="No target.")
             
     except:
         log_error("Import failed. Check file version or formatting.", logger="Logs")
@@ -182,7 +192,7 @@ def exportFile():
             progress_bar_divisions = 8
             progress_step = 0
 
-            global last_drag_model
+            global last_drag_model, last_target_apogee_enabled
 
             # prepare data lists
             export_thrust = {'Time (s)': last_results[1],'Thrust (N)': last_results[0]}
@@ -292,8 +302,8 @@ def exportFile():
             result_file.write(str(last_mdot)+" kg/s\n")
             result_file.write("Initial mass: ")
             result_file.write(str(last_mass_init)+" kg\n")
-            result_file.write("Final mass: ")
-            result_file.write(str(last_mass_final)+" kg\n")
+            result_file.write("Propellant mass: ")
+            result_file.write(str(last_mass_propellant)+" kg\n")
             result_file.write("Initial altitude: ")
             result_file.write(str(last_alt_init)+" m\n")
             result_file.write("Nozzle exit pressure: ")
@@ -356,7 +366,15 @@ def exportFile():
                 result_file.write("Main chute area: ")
                 result_file.write(str(last_chute_area) + "\n")
                 result_file.write("Main chute drag coefficient: ")
-                result_file.write(str(last_chute_coeff) + "\n")  
+                result_file.write(str(last_chute_coeff) + "\n")
+            if last_target_apogee_enabled:
+                result_file.write("Apogee target SET.\n")
+                result_file.write("Target apogee: ")
+                result_file.write(str(last_target_apogee) + " m\n")
+            else:
+                result_file.write("Apogee target NOT SET.\n")
+                result_file.write("Target apogee: ")
+                result_file.write(str(last_target_apogee) + "\n")
             
             result_file.write("\nOUTPUTS\n\n")
             result_file.write("Maximum altitude: ")
@@ -393,6 +411,87 @@ def exportFile():
     setProgressBarOverlay("")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#               APOGEE PREDICTION ROUTINE
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def calcApogee(param_a, param_v, param_m, target_apogee):
+
+    vel_init = param_v
+    alt_init = param_a
+    mass = param_m
+    time_increment = 0.01
+    cross_sec = 0.096
+    drag_coeff = 0.4
+
+    # Calculation sub-functions
+
+    def clamp(num, min_value, max_value):
+        return max(min(num, max_value), min_value)
+
+    def sign(x): return 1 if x >= 0 else -1
+
+    def alt2dens(altitude):
+
+        if altitude > 85000:
+            return 0.0
+        else:
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
+
+            lookup_line_low = float(model_lines[alt_low])
+            lookup_line_high = float(model_lines[alt_high])
+
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_density = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
+
+            return float(interpolated_density)
+
+    # Approximate drag force on the vessel
+    def calc_drag(velocity, altitude):
+
+        drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)      
+
+        return drag
+
+    def calc_grav(altitude):
+        gravity = 9.80665 * (6369000/(6369000+altitude))**2
+        return gravity
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #                   RUN PREDICTION
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    #set initial values
+    
+    alt = alt_init
+    vel = vel_init
+    drag = 0
+    density = alt2dens(alt_init)
+    gravity = -calc_grav(alt_init)
+    time = 0
+
+    is_going_up = True
+
+    # BEGIN TIMESTEPS
+    
+    while (True):
+
+        density = alt2dens(alt)
+        time = time + time_increment
+        gravity = -calc_grav(alt)
+        drag = calc_drag(vel, alt)
+        vel = vel + gravity * time_increment + drag/mass * time_increment
+        alt = alt + vel * time_increment
+
+        if is_going_up and vel <= 0:
+            is_going_up = False
+            alt_max = alt
+            if alt_max >= target_apogee:
+                return True
+            else:
+                return False
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                SIMULATION SETUP
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -403,9 +502,8 @@ def simulateTraj():
     log_info(message = "Run [" + str(calc_run_number) + "]: Simulating trajectory...", logger = "Logs")
 
     # get input values from entry fields
-
+    target_apogee_enabled = get_value("target_apogee_checkbox")
     drag_enabled = get_value("drag_model_checkbox")
-
     drogue_enabled = get_value("drogue_checkbox")
     chute_enabled = get_value("chute_checkbox")
     
@@ -413,11 +511,14 @@ def simulateTraj():
         eev = float(get_value("eev_field"))
         mdot = float(get_value("mdot_field"))
         mass_init = float(get_value("mass_init_field"))
-        mass_final = float(get_value("mass_final_field"))
+        mass_propellant = float(get_value("mass_propellant_field"))
         alt_init = float(get_value("alt_init_field"))
         exit_pressure = float(get_value("exit_pressure_field"))
         exit_area = float(get_value("exit_area_field"))
         time_increment = float(get_value("time_increment_field"))
+
+        if target_apogee_enabled:
+            target_apogee = float(get_value("target_apogee_field"))
 
         if drag_enabled:
             cross_sec = float(get_value("cross_sec_field"))
@@ -454,22 +555,31 @@ def simulateTraj():
         log_error("Input error. Make sure all design parameters are float values.", logger = "Logs")
         return
 
-    if mass_final >= mass_init:
-        log_error("Final mass can not be larger than initial mass!", logger = "Logs")
+    if mass_propellant >= mass_init:
+        log_error("Propellant mass can not be larger than initial mass!", logger = "Logs")
         return
 
     # save these values in global scope, in case we want to export
-    global last_eev, last_mdot, last_mass_init, last_mass_final, last_alt_init, last_time_increment, last_exit_area, last_exit_pressure, last_drag_model
+    global last_eev, last_mdot, last_mass_init, last_mass_propellant, last_alt_init, last_time_increment, last_exit_area, last_exit_pressure, last_drag_model
     last_eev = eev
     last_mdot = mdot
     last_mass_init = mass_init
-    last_mass_final = mass_final
+    last_mass_propellant = mass_propellant
     last_alt_init = alt_init
     last_exit_area = exit_area
     last_exit_pressure = exit_pressure
     last_time_increment = time_increment
 
-    global last_cross_sec, last_drag_coeff
+    global last_cross_sec, last_drag_coeff, last_target_apogee, last_target_apogee_enabled
+
+    if target_apogee_enabled:
+        last_target_apogee_enabled = True
+        last_target_apogee = target_apogee
+    else:
+        last_target_apogee_enabled = False
+        last_target_apogee = "Target not set."
+
+    print(last_target_apogee_enabled)
 
     if drag_enabled:
         last_drag_model = True
@@ -626,6 +736,8 @@ def simulateTraj():
     is_accelerating_up = True
     is_launching = True
 
+    engine_shutdown = False
+
     drogue_deployment = 0.0
     chute_deployment = 0.0
 
@@ -674,8 +786,6 @@ def simulateTraj():
             draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(100000/vis_scale),680,380)[0], space2screen(-340,int(100000/vis_scale),680,380)[1] - 14], text="Karman Line", size=14, color=[255,100,255,128])
 
         else:
-            
-            
             # sea
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int(alt/vis_scale), 680, 380), pmax=space2screen(340, 170-int(alt/vis_scale), 680, 380), color=[0,100,255,255])
             draw_text(drawing="vis_canvas", pos=space2screen(-340, 170-int(alt/vis_scale)+14, 680, 380), text="Sea Level", size=14, color=[0,100,255,255])
@@ -754,24 +864,22 @@ def simulateTraj():
             drogue_deployment_list.append(0.0)
         chute_deployment_list.append(chute_deployment)
             
-        density = alt2dens(alt)
-        
+        density = alt2dens(alt)    
         time = time + time_increment
 
-        if mass > mass_final:
+        if target_apogee_enabled and not engine_shutdown:
+            engine_shutdown = calcApogee(alt, vel, mass, target_apogee)     
+
+        gravity = -calc_grav(alt)
+        external_pressure = alt2press(alt)
+
+        # don't provide thrust if propellants are depleted or engine shutdown command was given!
+        if mass > (mass_init - mass_propellant) and ((target_apogee_enabled and not engine_shutdown) or not target_apogee_enabled):   
+            vel = vel + ((thrust/mass) * time_increment) + (gravity * time_increment) + (drag/mass * time_increment)
+            mass = mass - mdot * time_increment
             thrust = mdot * eev + exit_area * (exit_pressure - external_pressure)
         else:
             thrust = 0
-
-        gravity = -calc_grav(alt)
-        
-        external_pressure = alt2press(alt)
-
-        # don't provide thrust if propellants are depleted!
-        if mass > mass_final:      
-            vel = vel + ((thrust/mass) * time_increment) + (gravity * time_increment) + (drag/mass * time_increment)
-            mass = mass - mdot * time_increment
-        else:
             vel = vel + gravity * time_increment + drag/mass * time_increment
 
         if drogue_enabled and not is_going_up and alt <= drogue_deploy_alt:
@@ -792,24 +900,23 @@ def simulateTraj():
         isp = (thrust)/(mdot * 9.80665)
         drag, dyn_press = calc_drag(vel, alt)
 
-        if is_going_up and vel < 0:
+        if is_going_up and vel <= 0:
             is_going_up = False
             alt_max = alt
             set_value(name="tt_apoapsis", value=time)
             set_value(name="alt_max", value=alt_max)
             set_value(name="max_Q", value=max(dyn_press_list))
 
-        if is_accelerating_up and not mass > mass_final:
+        if is_accelerating_up and (not mass > (mass_init - mass_propellant) or (target_apogee_enabled and engine_shutdown)):
             is_accelerating_up = False
-            vel_max = vel
             set_value(name="tt_max_vel", value=time)
-            set_value(name="vel_max", value=vel_max)
-            set_value(name="accel_max", value=accel)
-            set_value(name="isp_max", value=isp)
+            set_value(name="vel_max", value=max(vel_list))
+            set_value(name="accel_max", value=max(accel_list))
+            set_value(name="isp_max", value=max(isp_list))
             set_value(name="cutoff_time", value=time)
 
         # vehicle reached ground!
-        if alt < alt_init:
+        if alt <= alt_init:
             flight_time = time
             set_value(name="flight_time", value=flight_time)
             log_info("Simulation completed.", logger="Logs")
@@ -929,16 +1036,22 @@ with window("File I/O", width=1260, height=60, no_close=True, no_move=True):
 #INPUTS WINDOW
 with window("Input", width=550, height=360, no_close=True):   
     set_window_pos("Input", 10, 80)
-    add_text("Enter parameters in float values.")
-    add_spacing(count=6)
+    add_text("Essential Parameters")
+    add_spacing(count=4)
     add_input_text(name = "eev_field", label = "Effective Exhaust Vel. (m/s)", width=250)
     add_input_text(name = "mdot_field", label = "Mass Flow (kg/s)", width=250)
-    add_input_text(name = "mass_init_field", label = "Initial Mass (kg)", tip="WET mass, not dry mass", width=250)
-    add_input_text(name = "mass_final_field", label = "Final Mass (kg)", tip="Enter vehicle dry mass if all propellant will be used.", width=250)
+    add_input_text(name = "mass_init_field", label = "Initial Mass (kg)", tip="WET mass", width=250)
+    add_input_text(name = "mass_propellant_field", label = "Propellant Mass (kg)", width=250)
     add_input_text(name = "alt_init_field", label = "Initial Altitude (m)", width=250)
     add_input_text(name = "exit_pressure_field", label = "Exhaust Exit Press. (Pa)", width=250)
     add_input_text(name = "exit_area_field", label = "Nozzle Exit Area (m^2)", width=250)
-    add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.001", width=250)
+    add_input_text(name = "time_increment_field", label = "Time Increments (s)", tip="Enter lower values for higher precision.", default_value="0.01", width=250)
+    add_spacing(count=6)
+    add_separator()
+    add_text("Optional Parameters")
+    add_spacing(count=4)
+    add_checkbox(name = "target_apogee_checkbox", label = "Enable apogee target")
+    add_input_text(name = "target_apogee_field", label = "Target Apogee (m, ASL)", width=250)
     add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable drag model")
     add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.", width=250)
@@ -957,6 +1070,7 @@ with window("Input", width=550, height=360, no_close=True):
     add_input_text(name = "chute_area_field", label="Main Chute Area (m^2)", width=250)
     add_input_text(name = "chute_coeff_field", label="Main Chute Drag Coeff.", width=250)
     add_spacing(count=6)
+    add_separator()
     add_text("Simulation Mode:")
     add_radio_button(name="sim_mode", items=["Quick Computation","Real-time Visualization"], default_value=0)
     add_spacing(count=6)
