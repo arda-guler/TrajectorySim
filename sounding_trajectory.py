@@ -1,6 +1,6 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.3.0"
+version = "1.3.1"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -11,6 +11,7 @@ import time as t
 #set initial window configuration (purely cosmetic)
 set_main_window_size(1300, 700)
 set_main_window_title("Sounding Rocket Trajectory Simulator | MRS")
+set_style_window_rounding(0.0)
 set_theme("Dark")
 
 calc_run_number = 0
@@ -31,6 +32,7 @@ last_drag_model = None
 
 last_target_apogee_enabled = None
 last_target_apogee = None
+last_engine_shutdown_delay = None
 
 last_drogue_enabled = None
 last_drogue_deploy_alt = None
@@ -135,9 +137,11 @@ def importFile():
         if import_lines[26] == "Apogee target SET.\n":
             set_value(name="target_apogee_checkbox", value=True)
             set_value(name="target_apogee_field", value=import_lines[27][15:-3])
+            set_value(name="engine_shutdown_delay_field", value=import_lines[28][23:-3])
         else:
             set_value(name="target_apogee_checkbox", value=False)
             set_value(name="target_apogee_field", value="No target.")
+            set_value(name="engine_shutdown_delay_field", value="No target.")
             
     except:
         log_error("Import failed. Check file version or formatting.", logger="Logs")
@@ -369,12 +373,12 @@ def exportFile():
                 result_file.write(str(last_chute_coeff) + "\n")
             if last_target_apogee_enabled:
                 result_file.write("Apogee target SET.\n")
-                result_file.write("Target apogee: ")
-                result_file.write(str(last_target_apogee) + " m\n")
+                result_file.write("Target apogee: " + str(last_target_apogee) + " m\n")
+                result_file.write("Engine shutdown delay: " + str(last_engine_shutdown_delay) + " s\n")
             else:
                 result_file.write("Apogee target NOT SET.\n")
-                result_file.write("Target apogee: ")
-                result_file.write(str(last_target_apogee) + "\n")
+                result_file.write("Target apogee: " + str(last_target_apogee) + "\n")
+                result_file.write("Engine shutdown delay: " + str(last_engine_shutdown_delay) + " \n")
             
             result_file.write("\nOUTPUTS\n\n")
             result_file.write("Maximum altitude: ")
@@ -414,7 +418,7 @@ def exportFile():
 #               APOGEE PREDICTION ROUTINE
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def calcApogee(param_a, param_v, param_m, target_apogee, drag_model, param_cross_sec, param_drag_coeff, param_time_incr):
+def calcApogeeDelayed(param_a, param_v, param_m, target_apogee, drag_model, param_cross_sec, param_drag_coeff, param_time_incr, param_last_accel, param_delay, param_mdot):
 
     vel_init = param_v
     alt_init = param_a
@@ -423,6 +427,9 @@ def calcApogee(param_a, param_v, param_m, target_apogee, drag_model, param_cross
     drag_enabled = drag_model
     cross_sec = param_cross_sec
     drag_coeff = param_drag_coeff
+
+    last_accel = param_last_accel
+    shutdown_delay = param_delay
 
     # Calculation sub-functions
 
@@ -473,6 +480,8 @@ def calcApogee(param_a, param_v, param_m, target_apogee, drag_model, param_cross
     density = alt2dens(alt_init)
     gravity = -calc_grav(alt_init)
     time = 0
+    
+    accel = last_accel[1]
 
     is_going_up = True
 
@@ -480,11 +489,18 @@ def calcApogee(param_a, param_v, param_m, target_apogee, drag_model, param_cross
     
     while (True):
 
-        density = alt2dens(alt)
         time = time + time_increment
-        gravity = -calc_grav(alt)
-        drag = calc_drag(vel, alt)
-        vel = vel + gravity * time_increment + drag/mass * time_increment
+
+        if time < shutdown_delay:
+            vel = vel + accel * time_increment
+            accel = accel + (last_accel[1] - last_accel[0]) #don't multiply this with time_accel, it is included already
+            mass = mass - param_mdot * time_increment
+        else:
+            density = alt2dens(alt)
+            gravity = -calc_grav(alt)
+            drag = calc_drag(vel, alt)
+            vel = vel + gravity * time_increment + drag/mass * time_increment
+
         alt = alt + vel * time_increment
 
         if is_going_up and vel <= 0:
@@ -523,6 +539,7 @@ def simulateTraj():
 
         if target_apogee_enabled:
             target_apogee = float(get_value("target_apogee_field"))
+            engine_shutdown_delay = float(get_value("engine_shutdown_delay_field"))
 
         if drag_enabled:
             cross_sec = float(get_value("cross_sec_field"))
@@ -574,14 +591,16 @@ def simulateTraj():
     last_exit_pressure = exit_pressure
     last_time_increment = time_increment
 
-    global last_cross_sec, last_drag_coeff, last_target_apogee, last_target_apogee_enabled
+    global last_cross_sec, last_drag_coeff, last_target_apogee, last_target_apogee_enabled, last_engine_shutdown_delay
 
     if target_apogee_enabled:
         last_target_apogee_enabled = True
         last_target_apogee = target_apogee
+        last_engine_shutdown_delay = engine_shutdown_delay
     else:
         last_target_apogee_enabled = False
         last_target_apogee = "Target not set."
+        last_engine_shutdown_delay = "Target not set."
 
     if drag_enabled:
         last_drag_model = True
@@ -739,6 +758,8 @@ def simulateTraj():
     is_launching = True
 
     engine_shutdown = False
+    engine_shutdown_command = False
+    time_since_shutdown_command = 0.0
 
     drogue_deployment = 0.0
     chute_deployment = 0.0
@@ -869,8 +890,15 @@ def simulateTraj():
         density = alt2dens(alt)    
         time = time + time_increment
 
-        if target_apogee_enabled and not engine_shutdown:
-            engine_shutdown = calcApogee(alt, vel, mass, target_apogee, drag_enabled, cross_sec, drag_coeff, time_increment)     
+        if target_apogee_enabled and not engine_shutdown_command and time > time_increment * 2:
+            engine_shutdown_command = calcApogeeDelayed(alt, vel, mass, target_apogee, drag_enabled, cross_sec, drag_coeff, time_increment, [accel_list[-2], accel_list[-1]], engine_shutdown_delay, mdot)
+            if engine_shutdown_command:
+                time_since_shutdown_command = 0
+
+        if engine_shutdown_command and time_since_shutdown_command < engine_shutdown_delay:
+            time_since_shutdown_command = time_since_shutdown_command + time_increment
+        elif engine_shutdown_command and time_since_shutdown_command >= engine_shutdown_delay and not engine_shutdown:
+            engine_shutdown = True
 
         gravity = -calc_grav(alt)
         external_pressure = alt2press(alt)
@@ -1054,6 +1082,7 @@ with window("Input", width=550, height=360, no_close=True):
     add_spacing(count=4)
     add_checkbox(name = "target_apogee_checkbox", label = "Enable apogee target")
     add_input_text(name = "target_apogee_field", label = "Target Apogee (m, ASL)", width=250)
+    add_input_text(name = "engine_shutdown_delay_field", label = "Engine Shutdown Delay (s)", width = 250, tip = "Time between the computer sending the engine shutdown signal\nand the actual mechanical shutdown. (Enter 0 if there is no delay.)")
     add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable drag model")
     add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.", width=250)

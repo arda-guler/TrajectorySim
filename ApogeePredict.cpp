@@ -2,7 +2,7 @@
 #include <math.h>
 #include <time.h>
 
-float vel, alt, mass;
+float vel, alt, mass, m_dot, accel_early, accel_late, delay;
 float density_array[861];
 
 int readAtmosphereModel() {
@@ -11,7 +11,7 @@ int readAtmosphereModel() {
 
 	errno_t fop = fopen_s(&fp, "atm_density_model.txt", "r");
 	if (fp == NULL) {
-		printf("Failed to read atmospheric density model file.\n\n");
+		printf("Failed to read atmospheric model file.\n\n");
 		return 1;
 	}
 
@@ -70,11 +70,14 @@ float calcGrav(float altitude) {
 }
 
 //this is like a Riemann sum basically
-float calcApogee(float alt_inst, float vel_inst, float mass_inst) {
+float calcApogee(float alt_inst, float vel_inst, float mass_inst, float shutdown_delay, float mdot, float recent_accel[2]) {
 
 	float alt = alt_inst;
 	float vel = vel_inst;
 	float mass = mass_inst;
+
+	float accel = recent_accel[1];
+	float accel_rate = recent_accel[1] - recent_accel[0];
 
 	float drag = 0;
 	float atm_dens = alt2dens(alt_inst);
@@ -86,17 +89,25 @@ float calcApogee(float alt_inst, float vel_inst, float mass_inst) {
 
 		time = time + time_incr;
 
-		gravity = -calcGrav(alt);
-		drag = calcDrag(alt, vel);
+		if (time < shutdown_delay) {
+			vel = vel + accel * time_incr;
+			accel = accel + accel_rate;
+			mass = mass - mdot * time_incr;
+		}
+		else {
+			vel = vel + (gravity + drag / mass) * time_incr;
+			gravity = -calcGrav(alt);
+			drag = calcDrag(alt, vel);
+		}
 
 		alt = alt + vel * time_incr;
-		vel = vel + (gravity + drag / mass) * time_incr;
 
 		if (vel <= 0) {
 			float alt_max = alt;
 			return alt_max;
 		}
 	}
+
 }
 
 float main() {
@@ -119,11 +130,21 @@ calc:
 	scanf_s("%f", &vel);
 	printf("Instantaneous mass (kg): ");
 	scanf_s("%f", &mass);
+	printf("Second from last acceleration reading (m/s^2): ");
+	scanf_s("%f", &accel_early);
+	printf("Last acceleration reading (m/s^2): ");
+	scanf_s("%f", &accel_late);
+	printf("Engine shutdown delay (s): ");
+	scanf_s("%f", &delay);
+	printf("Mass flow rate (kg/s): ");
+	scanf_s("%f", &m_dot);
+
+	float recent_accel[2] = {accel_early, accel_late};
 
 	clock_t begin = clock();
 
 	float apogee;
-	apogee = calcApogee(alt, vel, mass);
+	apogee = calcApogee(alt, vel, mass, delay, m_dot, recent_accel);
 
 	clock_t end = clock();
 	double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
