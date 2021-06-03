@@ -414,14 +414,15 @@ def exportFile():
 #               APOGEE PREDICTION ROUTINE
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def calcApogee(param_a, param_v, param_m, target_apogee):
+def calcApogee(param_a, param_v, param_m, target_apogee, drag_model, param_cross_sec, param_drag_coeff, param_time_incr):
 
     vel_init = param_v
     alt_init = param_a
     mass = param_m
-    time_increment = 0.01
-    cross_sec = 0.096
-    drag_coeff = 0.4
+    time_increment = param_time_incr
+    drag_enabled = drag_model
+    cross_sec = param_cross_sec
+    drag_coeff = param_drag_coeff
 
     # Calculation sub-functions
 
@@ -449,7 +450,10 @@ def calcApogee(param_a, param_v, param_m, target_apogee):
     # Approximate drag force on the vessel
     def calc_drag(velocity, altitude):
 
-        drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)      
+        if drag_enabled:
+            drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)
+        else:
+            drag = 0.0
 
         return drag
 
@@ -578,8 +582,6 @@ def simulateTraj():
     else:
         last_target_apogee_enabled = False
         last_target_apogee = "Target not set."
-
-    print(last_target_apogee_enabled)
 
     if drag_enabled:
         last_drag_model = True
@@ -868,7 +870,7 @@ def simulateTraj():
         time = time + time_increment
 
         if target_apogee_enabled and not engine_shutdown:
-            engine_shutdown = calcApogee(alt, vel, mass, target_apogee)     
+            engine_shutdown = calcApogee(alt, vel, mass, target_apogee, drag_enabled, cross_sec, drag_coeff, time_increment)     
 
         gravity = -calc_grav(alt)
         external_pressure = alt2press(alt)
