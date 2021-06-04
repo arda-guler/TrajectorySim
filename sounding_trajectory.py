@@ -1,16 +1,17 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.3.1"
+version = "1.3.2"
 
 from dearpygui.core import *
 from dearpygui.simple import *
 import math
 import pandas as pd
 import time as t
+import os
 
 #set initial window configuration (purely cosmetic)
 set_main_window_size(1300, 700)
-set_main_window_title("Sounding Rocket Trajectory Simulator | MRS")
+set_main_window_title("TrajectorySim v" + str(version))
 set_style_window_rounding(0.0)
 set_theme("Dark")
 
@@ -51,7 +52,7 @@ last_results = []
 
 # atmospheric density lookup file has values in kg/m^3, with steps of 100 meters
 # retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
-model_filename = "atm_density_model.txt"
+model_filename = "./data/atm_density_model.txt"
 model_file = open(model_filename, "r")
 model_lines = model_file.readlines()
 
@@ -64,6 +65,12 @@ set_value(name="progress", value=0)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                 FILE IMPORT/EXPORT
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def browseSaves():  
+    open_file_dialog(extensions=".txt", callback=selectSave)
+
+def selectSave(dialog, save_path):
+    set_value("filepath_field", save_path[0] + "\\" + save_path[1])
 
 def importFile():
 
@@ -1054,7 +1061,9 @@ def toggleKarman():
 #FILE OPERATIONS BAR
 with window("File I/O", width=1260, height=60, no_close=True, no_move=True):
     set_window_pos("File I/O", 10, 10)
-    add_input_text(name="filepath_field", label="Filepath", tip = "If the file is in the same directory with the script, you don't need\nto write the full path.")
+    add_button("Browse", callback = browseSaves)
+    add_same_line()
+    add_input_text(name="filepath_field", label="Filepath", tip = "If the file is in the same directory with the script, you don't need\nto write the full path.", width=600)
     add_same_line()
     add_button("Import", callback = importFile)
     add_same_line()
@@ -1227,5 +1236,6 @@ with window("Output", width=700, height=560, no_close=True):
 with window("Log", width=550, height=190, no_close=True):
     set_window_pos("Log", 10, 450)
     add_logger("Logs", log_level=0, autosize_x = True, autosize_y = True)
+    log_info(message = "TrajectorySim v" + str(version), logger = "Logs")
 
 start_dearpygui()

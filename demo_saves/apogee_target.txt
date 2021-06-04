@@ -1,0 +1,41 @@
+Save file version 1.3.2
+
+INPUTS
+
+Effective exhaust velocity: 2250.0 m/s
+Mass flow: 4.0 kg/s
+Initial mass: 200.0 kg
+Propellant mass: 100.0 kg
+Initial altitude: 900.0 m
+Nozzle exit pressure: 90000.0 Pa
+Nozzle exit area: 0.0055 m^2
+Time increment: 0.01 s
+Vessel cross-section (facing airflow): 0.1 m^2
+Drag coefficient (launch configuration): 0.5
+Drag model ENABLED.
+Drogue chute ENABLED.
+Drogue chute deployment altitude: 15000.0 m
+Drogue chute deployment time: 5.0 s
+Drogue chute area: 0.25 m^2
+Drogue chute drag coefficient: 1.0
+Drogue chute mass: 10.0 kg
+Main chute ENABLED.
+Main chute deployment altitude: 1750.0 m
+Main chute deployment time: 5.0 s
+Main chute area: 2.0 m^2
+Main chute drag coefficient: 2.0
+Apogee target SET.
+Target apogee: 10000.0 m
+Engine shutdown delay: 1.2 s
+
+OUTPUTS
+
+Maximum altitude: 10014.688102171453 m
+Time to apoapsis: 45.26999999999956 s
+Maximum velocity: 463.4106545521886 m/s
+Time to max. velocity: 14.399999999999737 s
+Flight time: 144.51000000001355 s
+Min. specific impulse: 229.3002845743884 s
+Max. specific impulse: 233.90977827596237 s
+Max. dynamic pressure: 83810.60451189592 Pa
+
