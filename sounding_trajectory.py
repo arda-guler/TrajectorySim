@@ -1,6 +1,18 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.3.3"
+# code is very verbose on purpose
+
+# NOTE: use dearpygui version 0.6.415
+# the 0.8 update broke the way
+# GUI item names (IDs) work and renamed/moved
+# a lot of stuff
+
+# (also it is not very well documented yet)
+
+# to install dearpygui 0.6.415 using pip:
+# pip install dearpygui==0.6.415
+
+version = "1.3.4"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -789,69 +801,91 @@ def simulateTraj():
 
         if not get_value("lock_on_rocket"):
             # sea
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,1,680,380), pmax=space2screen(340,1,680,380), color=[0,100,255,255])
-            draw_text(drawing="vis_canvas", pos=[space2screen(-340,1,680,380)[0], space2screen(340,1,680,380)[1] - 14], text="Sea Level", size=14, color=[0,100,255,255])
+            draw_line(drawing="vis_canvas", p1=space2screen(-340,1,680,380), p2=space2screen(340,1,680,380),
+                      color=[0,100,255,255], thickness=1)
+            draw_text(drawing="vis_canvas", pos=[space2screen(-340,1,680,380)[0], space2screen(340,1,680,380)[1] - 14],
+                      text="Sea Level", size=14, color=[0,100,255,255])
             
             # ground
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(alt_init/vis_scale)+1,680,380), pmax=space2screen(340,int(alt_init/vis_scale)+1,680,380), color=[0,255,0,255])
-            draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(alt_init/vis_scale)+1,680,380)[0], space2screen(-340,int(alt_init/vis_scale),680,380)[1] - 14], text="Ground", size=14, color=[0,255,0,255])
+            draw_line(drawing="vis_canvas", p1=space2screen(-340,int(alt_init/vis_scale)+1,680,380), p2=space2screen(340,int(alt_init/vis_scale)+1,680,380),
+                      color=[0,255,0,255], thickness=1)
+            draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(alt_init/vis_scale)+1,680,380)[0], space2screen(-340,int(alt_init/vis_scale),680,380)[1] - 14],
+                      text="Ground", size=14, color=[0,255,0,255])
 
             # rocket
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)+1,680,380), pmax=space2screen(0,int(alt/vis_scale)+5,680,380), color=[200,0,0,255])
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)+1,680,380), pmax=space2screen(0,int(alt/vis_scale)+5,680,380),
+                           color=[200,0,0,255])
 
             # drogue
             if drogue_deployment > 0 and not drogue_released:
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-2,int(alt/vis_scale)+6,680,380), pmax=space2screen(2,int(alt/vis_scale)+8,680,380), color=[255,10,10,255*drogue_deployment])
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-2,int(alt/vis_scale)+6,680,380), pmax=space2screen(2,int(alt/vis_scale)+8,680,380),
+                               color=[255,10,10,255*drogue_deployment])
 
             # main chute
             if chute_deployment > 0:
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-4,int(alt/vis_scale)+6,680,380), pmax=space2screen(4,int(alt/vis_scale)+10,680,380), color=[255,10,10,255*chute_deployment])
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-4,int(alt/vis_scale)+6,680,380), pmax=space2screen(4,int(alt/vis_scale)+10,680,380),
+                               color=[255,10,10,255*chute_deployment])
 
             # plume
             if is_accelerating_up:
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)-2,680,380), pmax=space2screen(0,int(alt/vis_scale)+1,680,380), color=[200,150,10,255])
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,int(alt/vis_scale)-2,680,380), pmax=space2screen(0,int(alt/vis_scale)+1,680,380),
+                               color=[200,150,10,255])
 
             # Karman line
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(100000/vis_scale),680,380), pmax=space2screen(340,int(100000/vis_scale),680,380), color=[255,100,255,128])
-            draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(100000/vis_scale),680,380)[0], space2screen(-340,int(100000/vis_scale),680,380)[1] - 14], text="Karman Line", size=14, color=[255,100,255,128])
+            draw_line(drawing="vis_canvas", p1=space2screen(-340,int(100000/vis_scale),680,380), p2=space2screen(340,int(100000/vis_scale),680,380),
+                      color=[255,100,255,128], thickness=1)
+            draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(100000/vis_scale),680,380)[0], space2screen(-340,int(100000/vis_scale),680,380)[1] - 14],
+                      text="Karman Line", size=14, color=[255,100,255,128])
 
             # 10 kilometer lines
             for i in range(1, 10):
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(i*10000/vis_scale),680,380), pmax=space2screen(-50,int(i*10000/vis_scale),680,380), color=[255,255,255,128])
-                draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(i*10000/vis_scale),680,380)[0], space2screen(-340,int(i*10000/vis_scale),680,380)[1] - 14], text=(str(i*10)+" km (ASL)"), size=14, color=[255,255,255,128])
+                draw_line(drawing="vis_canvas", p1=space2screen(-340,int(i*10000/vis_scale),680,380), p2=space2screen(-50,int(i*10000/vis_scale),680,380),
+                          color=[255,255,255,128], thickness=1)
+                draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(i*10000/vis_scale),680,380)[0], space2screen(-340,int(i*10000/vis_scale),680,380)[1] - 14],
+                          text=(str(i*10)+" km (ASL)"), size=14, color=[255,255,255,128])
 
         else:
             # sea
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int(alt/vis_scale), 680, 380), pmax=space2screen(340, 170-int(alt/vis_scale), 680, 380), color=[0,100,255,255])
+            draw_line(drawing="vis_canvas", p1=space2screen(-340, 170-int(alt/vis_scale), 680, 380), p2=space2screen(340, 170-int(alt/vis_scale), 680, 380),
+                      color=[0,100,255,255], thickness=1)
             draw_text(drawing="vis_canvas", pos=space2screen(-340, 170-int(alt/vis_scale)+14, 680, 380), text="Sea Level", size=14, color=[0,100,255,255])
             
             # ground
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int((alt-alt_init)/vis_scale), 680, 380), pmax=space2screen(340, 170-int((alt-alt_init)/vis_scale), 680, 380), color=[0,255,0,255])
-            draw_text(drawing="vis_canvas", pos=space2screen(-340, 170-int((alt-alt_init)/vis_scale)+14, 680, 380), text="Ground", size=14, color=[0,255,0,255])
+            draw_line(drawing="vis_canvas", p1=space2screen(-340, 170-int((alt-alt_init)/vis_scale), 680, 380), p2=space2screen(340, 170-int((alt-alt_init)/vis_scale), 680, 380),
+                      color=[0,255,0,255], thickness=1)
+            draw_text(drawing="vis_canvas", pos=space2screen(-340, 170-int((alt-alt_init)/vis_scale)+14, 680, 380),
+                      text="Ground", size=14, color=[0,255,0,255])
 
             # rocket
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,170,680,380), pmax=space2screen(0,175,680,380), color=[200,0,0,255])
+            draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,170,680,380), pmax=space2screen(0,175,680,380),
+                           color=[200,0,0,255])
 
             # drogue
             if drogue_deployment > 0 and not drogue_released:
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-2,176,680,380), pmax=space2screen(2,178,680,380), color=[255,10,10,255*drogue_deployment])
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-2,176,680,380), pmax=space2screen(2,178,680,380),
+                               color=[255,10,10,255*drogue_deployment])
 
             # main chute
             if chute_deployment > 0:
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-4,176,680,380), pmax=space2screen(4,180,680,380), color=[255,10,10,255*chute_deployment])
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-4,176,680,380), pmax=space2screen(4,180,680,380),
+                               color=[255,10,10,255*chute_deployment])
 
             # plume
             if is_accelerating_up:
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,165,680,380), pmax=space2screen(0,170,680,380), color=[200,150,10,255])
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(0,165,680,380), pmax=space2screen(0,170,680,380),
+                               color=[200,150,10,255])
 
             # Karman line
-            draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170+int((100000-alt)/vis_scale), 680, 380), pmax=space2screen(340, 170+int((100000-alt)/vis_scale), 680, 380), color=[255,100,255,128])
+            draw_line(drawing="vis_canvas", p1=space2screen(-340, 170+int((100000-alt)/vis_scale), 680, 380), p2=space2screen(340, 170+int((100000-alt)/vis_scale), 680, 380),
+                      color=[255,100,255,128], thickness=1)
             draw_text(drawing="vis_canvas", pos=space2screen(-340, 170+int((100000-alt)/vis_scale)+14, 680, 380), text="Karman Line", size=14, color=[255,100,255,128])
 
             # 10 km lines
             for i in range(1, 10):
-                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170+int((i*10000-alt)/vis_scale), 680, 380), pmax=space2screen(-50, 170+int((i*10000-alt)/vis_scale), 680, 380), color=[255,255,255,128])
-                draw_text(drawing="vis_canvas", pos=space2screen(-340, 170+int((i*10000-alt)/vis_scale)+14, 680, 380), text=(str(i*10)+" km"), size=14, color=[255,255,255,128])
+                draw_line(drawing="vis_canvas", p1=space2screen(-340, 170+int((i*10000-alt)/vis_scale), 680, 380), p2=space2screen(-50, 170+int((i*10000-alt)/vis_scale), 680, 380),
+                          color=[255,255,255,128], thickness=1)
+                draw_text(drawing="vis_canvas", pos=space2screen(-340, 170+int((i*10000-alt)/vis_scale)+14, 680, 380),
+                          text=(str(i*10)+" km"), size=14, color=[255,255,255,128])
 
         # --- --- --- --- ---
 
