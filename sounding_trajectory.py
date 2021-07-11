@@ -1,6 +1,6 @@
 #   SOUNDING ROCKET TRAJECTORY SIMULATOR
 
-version = "1.3.2"
+version = "1.3.3"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -782,7 +782,7 @@ def simulateTraj():
 
         cycle_start = t.perf_counter()
 
-        # update visualizer ---
+        # --- UPDATE VISUALIZER ---
 
         vis_scale = float(get_value("vis_scale_field"))
         clear_drawing("vis_canvas")
@@ -815,6 +815,11 @@ def simulateTraj():
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(100000/vis_scale),680,380), pmax=space2screen(340,int(100000/vis_scale),680,380), color=[255,100,255,128])
             draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(100000/vis_scale),680,380)[0], space2screen(-340,int(100000/vis_scale),680,380)[1] - 14], text="Karman Line", size=14, color=[255,100,255,128])
 
+            # 10 kilometer lines
+            for i in range(1, 10):
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340,int(i*10000/vis_scale),680,380), pmax=space2screen(-50,int(i*10000/vis_scale),680,380), color=[255,255,255,128])
+                draw_text(drawing="vis_canvas", pos=[space2screen(-340,int(i*10000/vis_scale),680,380)[0], space2screen(-340,int(i*10000/vis_scale),680,380)[1] - 14], text=(str(i*10)+" km (ASL)"), size=14, color=[255,255,255,128])
+
         else:
             # sea
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170-int(alt/vis_scale), 680, 380), pmax=space2screen(340, 170-int(alt/vis_scale), 680, 380), color=[0,100,255,255])
@@ -842,7 +847,13 @@ def simulateTraj():
             # Karman line
             draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170+int((100000-alt)/vis_scale), 680, 380), pmax=space2screen(340, 170+int((100000-alt)/vis_scale), 680, 380), color=[255,100,255,128])
             draw_text(drawing="vis_canvas", pos=space2screen(-340, 170+int((100000-alt)/vis_scale)+14, 680, 380), text="Karman Line", size=14, color=[255,100,255,128])
-        # --- --- --- --- --- ---
+
+            # 10 km lines
+            for i in range(1, 10):
+                draw_rectangle(drawing="vis_canvas", pmin=space2screen(-340, 170+int((i*10000-alt)/vis_scale), 680, 380), pmax=space2screen(-50, 170+int((i*10000-alt)/vis_scale), 680, 380), color=[255,255,255,128])
+                draw_text(drawing="vis_canvas", pos=space2screen(-340, 170+int((i*10000-alt)/vis_scale)+14, 680, 380), text=(str(i*10)+" km"), size=14, color=[255,255,255,128])
+
+        # --- --- --- --- ---
 
         if progress_loop < 1.0:
             progress_loop = progress_loop + 0.01
