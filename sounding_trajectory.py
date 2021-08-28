@@ -12,7 +12,7 @@
 # to install dearpygui 0.6.415 using pip:
 # pip install dearpygui==0.6.415
 
-version = "1.3.4"
+version = "1.4.0"
 
 from dearpygui.core import *
 from dearpygui.simple import *
@@ -40,7 +40,6 @@ last_time_increment = None
 last_exit_pressure = None
 last_exit_area = None
 last_cross_sec = None
-last_drag_coeff = None
 last_drag_model = None
 
 last_target_apogee_enabled = None
@@ -67,6 +66,27 @@ last_results = []
 model_filename = "./data/atm_density_model.txt"
 model_file = open(model_filename, "r")
 model_lines = model_file.readlines()
+
+# atmospheric dynamic viscosity lookup file has values in Pascal x second, with
+# steps of 100 meters
+# retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
+viscosity_filename = "./data/atm_viscosity_model.txt"
+viscosity_file = open(viscosity_filename, "r")
+viscosity_lines = viscosity_file.readlines()
+
+# atmospheric pressure lookup file has values in Pascal, with
+# steps of 100 meters
+# retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
+pressure_filename = "./data/atm_pressure_model.txt"
+pressure_file = open(pressure_filename, "r")
+pressure_lines = pressure_file.readlines()
+
+# atmospheric pressure lookup file has values in Pascal, with
+# steps of 100 meters
+# retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
+temperature_filename = "./data/atm_temp_model.txt"
+temperature_file = open(temperature_filename, "r")
+temperature_lines = temperature_file.readlines()
 
 # graph display toggles
 is_ground_displayed = False
@@ -116,51 +136,69 @@ def importFile():
         set_value(name="exit_area_field", value=import_lines[10][18:-5])
         set_value(name="time_increment_field", value=import_lines[11][16:-3])
 
-        if import_lines[14] == "Drag model ENABLED.\n":
+        if import_lines[23] == "Drag model ENABLED.\n":
             set_value(name="drag_model_checkbox", value=True)
-            set_value(name="cross_sec_field", value=import_lines[12][39:-5])
-            set_value(name="drag_coeff_field", value=import_lines[13][41:-1])
+            set_value(name="diameter_field", value=import_lines[12][22:-3])
+            set_value(name="cross_sec_field", value=import_lines[13][39:-5])
+            set_value(name="total_length_field", value=import_lines[14][21:-3])
+            set_value(name="nose_length_field", value=import_lines[15][20:-3])
+            set_value(name="body_length_field", value=import_lines[16][20:-3])
+            set_value(name="thickness_upper_field", value=import_lines[17][21:-3])
+            set_value(name="chord_upper_field", value=import_lines[18][17:-3])
+            set_value(name="thickness_lower_field", value=import_lines[19][21:-3])
+            set_value(name="chord_lower_field", value=import_lines[20][17:-3])
+            set_value(name="wet_area_field", value=import_lines[21][13:-5])
+            set_value(name="ref_area_field", value=import_lines[22][16:-5])
         else:
             set_value(name="drag_model_checkbox", value=False)
-            set_value(name="cross_sec_field", value="Drag model disabled.")
-            set_value(name="drag_coeff_field", value="Drag model disabled.")
+            set_value(name="diameter_field", value="Drag model disabled.")
+            set_value(name="cross_sec_field", value="")
+            set_value(name="total_length_field", value="")
+            set_value(name="nose_length_field", value="")
+            set_value(name="body_length_field", value="")
+            set_value(name="thickness_upper_field", value="")
+            set_value(name="chord_upper_field", value="")
+            set_value(name="thickness_lower_field", value="")
+            set_value(name="chord_lower_field", value="")
+            set_value(name="wet_area_field", value="")
+            set_value(name="ref_area_field", value="")
 
-        if import_lines[15] == "Drogue chute ENABLED.\n":
+        if import_lines[24] == "Drogue chute ENABLED.\n":
             set_value(name="drogue_checkbox", value=True)
-            set_value(name="drogue_deploy_alt_field", value=import_lines[16][34:-3])
-            set_value(name="drogue_deploy_time_field", value=import_lines[17][30:-3])
-            set_value(name="drogue_area_field", value=import_lines[18][19:-5])
-            set_value(name="drogue_coeff_field", value=import_lines[19][31:-1])
-            set_value(name="drogue_mass_field", value=import_lines[20][19:-4])
+            set_value(name="drogue_deploy_alt_field", value=import_lines[25][34:-3])
+            set_value(name="drogue_deploy_time_field", value=import_lines[26][30:-3])
+            set_value(name="drogue_area_field", value=import_lines[27][19:-5])
+            set_value(name="drogue_coeff_field", value=import_lines[28][31:-1])
+            set_value(name="drogue_mass_field", value=import_lines[29][19:-4])
         else:
             set_value(name="drogue_checkbox", value=False)
             set_value(name="drogue_deploy_alt_field", value="Drogue chute disabled.")
-            set_value(name="drogue_deploy_time_field", value="Drogue chute disabled.")
-            set_value(name="drogue_area_field", value="Drogue chute disabled.")
-            set_value(name="drogue_coeff_field", value="Drogue chute disabled.")
-            set_value(name="drogue_mass_field", value="Drogue chute disabled.")
+            set_value(name="drogue_deploy_time_field", value="")
+            set_value(name="drogue_area_field", value="")
+            set_value(name="drogue_coeff_field", value="")
+            set_value(name="drogue_mass_field", value="")
 
-        if import_lines[21] == "Main chute ENABLED.\n":
+        if import_lines[30] == "Main chute ENABLED.\n":
             set_value(name="chute_checkbox", value=True)
-            set_value(name="chute_deploy_alt_field", value=import_lines[22][32:-3])
-            set_value(name="chute_deploy_time_field", value=import_lines[23][28:-3])
-            set_value(name="chute_area_field", value=import_lines[24][17:-5])
-            set_value(name="chute_coeff_field", value=import_lines[25][29:-1])
+            set_value(name="chute_deploy_alt_field", value=import_lines[31][32:-3])
+            set_value(name="chute_deploy_time_field", value=import_lines[32][28:-3])
+            set_value(name="chute_area_field", value=import_lines[33][17:-5])
+            set_value(name="chute_coeff_field", value=import_lines[34][29:-1])
         else:
             set_value(name="chute_checkbox", value=False)
             set_value(name="chute_deploy_alt_field", value="Main chute disabled.")
-            set_value(name="chute_deploy_time_field", value="Main chute disabled.")
-            set_value(name="chute_area_field", value="Main chute disabled.")
-            set_value(name="chute_coeff_field", value="Main chute disabled.")
+            set_value(name="chute_deploy_time_field", value="")
+            set_value(name="chute_area_field", value="")
+            set_value(name="chute_coeff_field", value="")
 
-        if import_lines[26] == "Apogee target SET.\n":
+        if import_lines[35] == "Apogee target SET.\n":
             set_value(name="target_apogee_checkbox", value=True)
-            set_value(name="target_apogee_field", value=import_lines[27][15:-3])
-            set_value(name="engine_shutdown_delay_field", value=import_lines[28][23:-3])
+            set_value(name="target_apogee_field", value=import_lines[36][15:-3])
+            set_value(name="engine_shutdown_delay_field", value=import_lines[37][23:-3])
         else:
             set_value(name="target_apogee_checkbox", value=False)
             set_value(name="target_apogee_field", value="No target.")
-            set_value(name="engine_shutdown_delay_field", value="No target.")
+            set_value(name="engine_shutdown_delay_field", value="")
             
     except:
         log_error("Import failed. Check file version or formatting.", logger="Logs")
@@ -210,6 +248,8 @@ def exportFile():
             # [11]: dyn_press_list
             # [12]: drogue_deployment_list
             # [13]: chute_deployment_list
+            # [14]: drag_coeff_list
+            # [15]: mach_list
 
             setProgressBarOverlay("Preparing data for export...")
             progress_bar_divisions = 8
@@ -221,6 +261,7 @@ def exportFile():
             export_thrust = {'Time (s)': last_results[1],'Thrust (N)': last_results[0]}
             export_alt = {'Time (s)': last_results[1],'Altitude (m)': last_results[2]}
             export_vel = {'Time (s)': last_results[1],'Velocity (m/s)': last_results[3]}
+            export_mach = {'Time (s)': last_results[1],'Mach Number': last_results[15]}
             export_external_pressure = {'Time (s)': last_results[1],'Ext. Pressure': last_results[6]}
             export_gravity = {'Time (s)': last_results[1],'Gravity (m/s^2)': last_results[7]}
             export_accel = {'Time (s)': last_results[1],'Acceleration (m/s^2)': last_results[8]}
@@ -228,6 +269,7 @@ def exportFile():
             if last_drag_model:
                 progress_bar_divisions = progress_bar_divisions + 2
                 export_drag = {'Time (s)': last_results[1],'Drag (N)': last_results[10]}
+                export_drag_coeff = {'Time (s)': last_results[1],'Drag Coefficient': last_results[14]}
                 export_dyn_press = {'Time (s)': last_results[1],'Dynamic Pressure (Pa)': last_results[11]}
             if last_drogue_enabled:
                 progress_bar_divisions = progress_bar_divisions + 1
@@ -239,6 +281,7 @@ def exportFile():
             # create dataframes
             df_alt = pd.DataFrame(export_alt)
             df_vel = pd.DataFrame(export_vel)
+            df_mach = pd.DataFrame(export_mach)
             df_accel = pd.DataFrame(export_accel)
             df_thrust = pd.DataFrame(export_thrust)
             df_external_pressure = pd.DataFrame(export_external_pressure)
@@ -246,6 +289,7 @@ def exportFile():
             df_isp = pd.DataFrame(export_isp)
             if last_drag_model:
                 df_drag = pd.DataFrame(export_drag)
+                df_drag_coeff = pd.DataFrame(export_drag_coeff)
                 df_dyn_press = pd.DataFrame(export_dyn_press)
             if last_drogue_enabled:
                 df_drogue = pd.DataFrame(export_drogue)
@@ -262,6 +306,10 @@ def exportFile():
                 set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing velocity...")
                 df_vel.to_excel(writer, sheet_name = 'Velocity')
+                progress_step = progress_step + 1
+                set_value(name="progress", value=float(progress_step/progress_bar_divisions))
+                setProgressBarOverlay("Writing mach number...")
+                df_mach.to_excel(writer, sheet_name = 'Mach Number')
                 progress_step = progress_step + 1
                 set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                 setProgressBarOverlay("Writing acceleration...")
@@ -287,6 +335,8 @@ def exportFile():
                 if last_drag_model:
                     setProgressBarOverlay("Writing drag...")
                     df_drag.to_excel(writer, sheet_name = 'Drag')
+                    setProgressBarOverlay("Writing drag coefficient...")
+                    df_drag_coeff.to_excel(writer, sheet_name = 'Drag Coefficient')
                     progress_step = progress_step + 1
                     set_value(name="progress", value=float(progress_step/progress_bar_divisions))
                     setProgressBarOverlay("Writing dyn. press...")
@@ -335,13 +385,53 @@ def exportFile():
             result_file.write(str(last_exit_area)+" m^2\n")
             result_file.write("Time increment: ")
             result_file.write(str(last_time_increment)+" s\n")
-            result_file.write("Vessel cross-section (facing airflow): ")
+            
             if last_drag_model:
+##                last_diameter = diameter
+##                last_cross_sec = cross_sec
+##                last_total_length = total_length
+##                last_nose_length = nose_length
+##                last_body_length = body_length
+##                last_thickness_upper = thickness_upper
+##                last_chord_upper = chord_upper
+##                last_thickness_lower = thickness_lower
+##                last_chord_lower = chord_lower
+##                last_wet_area = wet_area
+##                last_ref_area = ref_area
+                result_file.write("Vessel max. diameter: ")
+                result_file.write(str(last_diameter)+" m\n")
+                result_file.write("Vessel cross-section (facing airflow): ")
                 result_file.write(str(last_cross_sec)+" m^2\n")
+                result_file.write("Vessel total length: ")
+                result_file.write(str(last_total_length)+" m\n")
+                result_file.write("Vessel nose length: ")
+                result_file.write(str(last_nose_length)+" m\n")
+                result_file.write("Vessel body length: ")
+                result_file.write(str(last_body_length)+" m\n")
+                result_file.write("Upper fin thickness: ")
+                result_file.write(str(last_thickness_upper)+" m\n")
+                result_file.write("Upper fin chord: ")
+                result_file.write(str(last_chord_upper)+" m\n")
+                result_file.write("Lower fin thickness: ")
+                result_file.write(str(last_thickness_lower)+" m\n")
+                result_file.write("Lower fin chord: ")
+                result_file.write(str(last_chord_lower)+" m\n")
+                result_file.write("Wetted area: ")
+                result_file.write(str(last_wet_area)+" m^2\n")
+                result_file.write("Reference area: ")
+                result_file.write(str(last_ref_area)+" m^2\n")
             else:
-                result_file.write(str(last_cross_sec)+"\n")
-            result_file.write("Drag coefficient (launch configuration): ")
-            result_file.write(str(last_drag_coeff)+"\n")
+                result_file.write("Vessel max. diameter: Drag model disabled.\n")
+                result_file.write("Vessel cross-section (facing airflow): Drag model disabled.\n")
+                result_file.write("Vessel total length: Drag model disabled.\n")
+                result_file.write("Vessel nose length: Drag model disabled.\n")
+                result_file.write("Vessel body length: Drag model disabled.\n")
+                result_file.write("Upper fin thickness: Drag model disabled.\n")
+                result_file.write("Upper fin chord: Drag model disabled.\n")
+                result_file.write("Lower fin thickness: Drag model disabled.\n")
+                result_file.write("Lower fin chord: Drag model disabled.\n")
+                result_file.write("Wetted area: Drag model disabled.\n")
+                result_file.write("Reference area: Drag model disabled.\n")
             if last_drag_model:
                 result_file.write("Drag model ENABLED.\n")
             else:
@@ -437,15 +527,27 @@ def exportFile():
 #               APOGEE PREDICTION ROUTINE
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def calcApogeeDelayed(param_a, param_v, param_m, target_apogee, drag_model, param_cross_sec, param_drag_coeff, param_time_incr, param_last_accel, param_delay, param_mdot):
+def calcApogeeDelayed(param_a, param_v, param_m, target_apogee, drag_model, param_cross_sec, param_time_incr, param_last_accel, param_delay, param_mdot,
+                      param_diameter, param_total_length, param_nose_length, param_body_length, param_thickness_upper, param_chord_upper, param_thickness_lower, param_chord_lower,
+                      param_wet_area, param_ref_area):
 
     vel_init = param_v
     alt_init = param_a
     mass = param_m
     time_increment = param_time_incr
+    
     drag_enabled = drag_model
     cross_sec = param_cross_sec
-    drag_coeff = param_drag_coeff
+    total_length = param_total_length
+    diameter = param_diameter
+    nose_length = param_nose_length
+    body_length = param_body_length
+    thickness_upper = param_thickness_upper
+    chord_upper = param_chord_upper
+    thickness_lower = param_thickness_lower
+    chord_lower = param_chord_lower
+    wet_area = param_wet_area
+    ref_area = param_ref_area
 
     last_accel = param_last_accel
     shutdown_delay = param_delay
@@ -473,8 +575,110 @@ def calcApogeeDelayed(param_a, param_v, param_m, target_apogee, drag_model, para
 
             return float(interpolated_density)
 
+    def alt2temp(altitude):
+
+        if altitude > 85000:
+            return 0.0
+        else:
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
+
+            lookup_line_low = float(temperature_lines[alt_low])
+            lookup_line_high = float(temperature_lines[alt_high])
+
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_temperature = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
+
+            return float(interpolated_temperature)
+
+    def alt2dyn_visco(altitude):
+        
+        if altitude > 85000:
+            return 0.0
+        else:
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
+
+            lookup_line_low = float(viscosity_lines[alt_low])
+            lookup_line_high = float(viscosity_lines[alt_high])
+
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_viscosity = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
+
+            return float(interpolated_viscosity)
+
+    def calc_speed_of_sound(altitude):
+        return (1.4 * 286 * (alt2temp(altitude) + 273.15))**0.5
+
+    def calc_drag_coeff(altitude, velocity):
+
+        length = total_length
+
+        # sign will be dealt with in calc_drag()
+        velocity = abs(velocity)
+        mach = velocity / calc_speed_of_sound(altitude)
+
+        # https://en.wikipedia.org/wiki/Reynolds_number#Definition
+        reynolds_number = (velocity * diameter * alt2dens(altitude)) / alt2dyn_visco(altitude)
+
+        # https://www.cfd-online.com/Wiki/Skin_friction_coefficient
+        flat_plane_skin_friction_coeff = 0.0576 * reynolds_number**(-1/5)
+
+        # FORM + FRICTION DRAG
+        form_factor_body = 1 + (1.5/((length/diameter)**1.5)) + (7/((length/diameter)**3))
+        form_factor_wing_upper = 1 + 2*(thickness_upper/chord_upper) + 60 * ((thickness_upper/chord_upper)**4)
+        form_factor_wing_lower = 1 + 2*(thickness_lower/chord_lower) + 60 * ((thickness_lower/chord_lower)**4)
+
+        form_factor = form_factor_body + form_factor_wing_upper + form_factor_wing_lower
+        
+        friction_form_coeff = flat_plane_skin_friction_coeff * form_factor * (wet_area / ref_area)
+
+        # WAVE DRAG
+        mach_drag_divergence = -0.0156 * (nose_length/diameter)**2 + 0.136 * (nose_length/diameter) + 0.6817
+
+        a = 0
+        b = 0
+        if nose_length/length < 0.2:
+            a = 2.4
+            b = -1.05
+        else:
+            a = -321.94 * (nose_length/length)**2 + 264.07 * (nose_length/length) - 36.348
+            b = 19.634 * (nose_length/length)**2 - 18.369 * (nose_length/length) + 1.7434
+            
+        mach_final = a * (length/diameter)**b + 1.0275
+
+        c = 50.676 * (nose_length/body_length)**2 - 51.734 * (nose_length/body_length) + 15.642
+        g = -2.2538 * (nose_length/body_length)**2 + 1.3108 * (nose_length/body_length) - 1.7344
+
+        wave_drag_coeff = 0
+        
+        # vehicle is transsonic
+        if mach_drag_divergence <= mach <= mach_final:
+            
+            if length/diameter >= 6:
+                wave_drag_coeff_max = c * (length/diameter)**g
+            else:
+                wave_drag_coeff_max = c * 6**g
+                
+            x = ((mach - mach_drag_divergence)/(mach_final - mach_drag_divergence))
+            f = -8.3474*x**5 + 24.543*x**4 - 24.946*x**3 + 8.6321*x**2 + 1.1195*x
+            wave_drag_coeff = wave_drag_coeff_max * f
+
+        # vehicle is supersonic
+        elif mach_final < mach:
+            if length/diameter >= 6:
+                wave_drag_coeff_max = c * (length/diameter)**g
+            else:
+                wave_drag_coeff_max = c * 6**g
+                
+            wave_drag_coeff = wave_drag_coeff_max
+
+        return friction_form_coeff + wave_drag_coeff
+
     # Approximate drag force on the vessel
     def calc_drag(velocity, altitude):
+
+        drag_coeff = calc_drag_coeff(altitude, velocity)
 
         if drag_enabled:
             drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)
@@ -561,8 +765,17 @@ def simulateTraj():
             engine_shutdown_delay = float(get_value("engine_shutdown_delay_field"))
 
         if drag_enabled:
+            diameter = float(get_value("diameter_field"))
             cross_sec = float(get_value("cross_sec_field"))
-            drag_coeff = float(get_value("drag_coeff_field"))
+            total_length = float(get_value("total_length_field"))
+            nose_length = float(get_value("nose_length_field"))
+            body_length = float(get_value("body_length_field"))
+            thickness_upper = float(get_value("thickness_upper_field"))
+            chord_upper = float(get_value("chord_upper_field"))
+            thickness_lower = float(get_value("thickness_lower_field"))
+            chord_lower = float(get_value("chord_lower_field"))
+            wet_area = float(get_value("wet_area_field"))
+            ref_area = float(get_value("ref_area_field"))
             
             if chute_enabled:
                 chute_deploy_alt = float(get_value("chute_deploy_alt_field"))
@@ -588,8 +801,17 @@ def simulateTraj():
                 drogue_coeff = -1.0
                 
         else:
-            cross_sec = -1.0
-            drag_coeff = -1.0
+            diameter = -1
+            cross_sec = -1
+            total_length = -1
+            nose_length = -1
+            body_length = -1
+            thickness_upper = -1
+            chord_upper = -1
+            thickness_lower = -1
+            chord_lower = -1
+            wet_area = -1
+            ref_area = -1
             
     except:
         log_error("Input error. Make sure all design parameters are float values.", logger = "Logs")
@@ -610,7 +832,8 @@ def simulateTraj():
     last_exit_pressure = exit_pressure
     last_time_increment = time_increment
 
-    global last_cross_sec, last_drag_coeff, last_target_apogee, last_target_apogee_enabled, last_engine_shutdown_delay
+    global last_diameter, last_cross_sec, last_total_length, last_nose_length, last_body_length, last_thickness_upper, last_thickness_lower,\
+           last_chord_upper, last_chord_lower, last_wet_area, last_ref_area, last_target_apogee, last_target_apogee_enabled, last_engine_shutdown_delay
 
     if target_apogee_enabled:
         last_target_apogee_enabled = True
@@ -623,12 +846,20 @@ def simulateTraj():
 
     if drag_enabled:
         last_drag_model = True
+        last_diameter = diameter
         last_cross_sec = cross_sec
-        last_drag_coeff = drag_coeff
+        last_total_length = total_length
+        last_nose_length = nose_length
+        last_body_length = body_length
+        last_thickness_upper = thickness_upper
+        last_chord_upper = chord_upper
+        last_thickness_lower = thickness_lower
+        last_chord_lower = chord_lower
+        last_wet_area = wet_area
+        last_ref_area = ref_area
     else:
         last_drag_model = False
         last_cross_sec = "Drag model disabled."
-        last_drag_coeff = "Drag model disabled."
 
     global last_drogue_enabled, last_drogue_deploy_alt, last_drogue_deploy_time, last_drogue_area, last_drogue_coeff, last_drogue_mass
 
@@ -685,28 +916,121 @@ def simulateTraj():
 
             return float(interpolated_density)
 
-    # https://www.grc.nasa.gov/www/k-12/airplane/atmosmet.html
     def alt2press(altitude):
 
-        # takes altitude in meters
-        # returns typical pressure, density or temperature on demand
-        # altitude: m
-        # pressure: Pa
-        # temp: degrees C
+        if altitude > 85000:
+            return 0.0
+        else:
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
 
-        if altitude < 11000:
-            temp = -131.21 + 0.00299 * altitude
-            press = 101330 * (1-((0.0065 * altitude)/(288.15)))**((9.807)/(286.9 * 0.0065))
+            lookup_line_low = float(pressure_lines[alt_low])
+            lookup_line_high = float(pressure_lines[alt_high])
 
-        if 25000 > altitude >= 11000:
-            temp = -56.46
-            press = (22.65 * math.e ** (1.73 - 0.000157 * altitude)) * 1000
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_pressure = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
 
-        if altitude >= 25000:
-            temp = -131.21 + 0.00299 * altitude
-            press = (2.488 * ((temp + 273.1)/(216.6))**(-11.388)) * 1000
+            return float(interpolated_pressure)
+
+    def alt2dyn_visco(altitude):
         
-        return press
+        if altitude > 85000:
+            return 0.0
+        else:
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
+
+            lookup_line_low = float(viscosity_lines[alt_low])
+            lookup_line_high = float(viscosity_lines[alt_high])
+
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_viscosity = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
+
+            return float(interpolated_viscosity)
+
+    def alt2temp(altitude):
+
+        if altitude > 85000:
+            return 0.0
+        else:
+            alt_low = int(altitude/100)
+            alt_high = alt_low + 1
+
+            lookup_line_low = float(temperature_lines[alt_low])
+            lookup_line_high = float(temperature_lines[alt_high])
+
+            # do linear interpolation so you don't get "staircase" values
+            interpolated_temperature = lookup_line_low + ((lookup_line_high - lookup_line_low)/100) * ((altitude - (alt_low * 100)))
+
+            return float(interpolated_temperature)
+
+    def calc_speed_of_sound(altitude):
+        return (1.4 * 286 * (alt2temp(altitude) + 273.15))**0.5
+
+    def calc_drag_coeff(altitude, velocity):
+
+        length = total_length
+
+        # sign will be dealt with in calc_drag()
+        velocity = abs(velocity)
+        mach = velocity / calc_speed_of_sound(altitude)
+
+        # https://en.wikipedia.org/wiki/Reynolds_number#Definition
+        reynolds_number = (velocity * diameter * alt2dens(altitude)) / alt2dyn_visco(altitude)
+
+        # https://www.cfd-online.com/Wiki/Skin_friction_coefficient
+        flat_plane_skin_friction_coeff = 0.0576 * reynolds_number**(-1/5)
+
+        # FORM + FRICTION DRAG
+        form_factor_body = 1 + (1.5/((length/diameter)**1.5)) + (7/((length/diameter)**3))
+        form_factor_wing_upper = 1 + 2*(thickness_upper/chord_upper) + 60 * ((thickness_upper/chord_upper)**4)
+        form_factor_wing_lower = 1 + 2*(thickness_lower/chord_lower) + 60 * ((thickness_lower/chord_lower)**4)
+
+        form_factor = form_factor_body + form_factor_wing_upper + form_factor_wing_lower
+        
+        friction_form_coeff = flat_plane_skin_friction_coeff * form_factor * (wet_area / ref_area)
+
+        # WAVE DRAG
+        mach_drag_divergence = -0.0156 * (nose_length/diameter)**2 + 0.136 * (nose_length/diameter) + 0.6817
+
+        a = 0
+        b = 0
+        if nose_length/length < 0.2:
+            a = 2.4
+            b = -1.05
+        else:
+            a = -321.94 * (nose_length/length)**2 + 264.07 * (nose_length/length) - 36.348
+            b = 19.634 * (nose_length/length)**2 - 18.369 * (nose_length/length) + 1.7434
+            
+        mach_final = a * (length/diameter)**b + 1.0275
+
+        c = 50.676 * (nose_length/body_length)**2 - 51.734 * (nose_length/body_length) + 15.642
+        g = -2.2538 * (nose_length/body_length)**2 + 1.3108 * (nose_length/body_length) - 1.7344
+
+        wave_drag_coeff = 0
+        
+        # vehicle is transsonic
+        if mach_drag_divergence <= mach <= mach_final:
+            
+            if length/diameter >= 6:
+                wave_drag_coeff_max = c * (length/diameter)**g
+            else:
+                wave_drag_coeff_max = c * 6**g
+                
+            x = ((mach - mach_drag_divergence)/(mach_final - mach_drag_divergence))
+            f = -8.3474*x**5 + 24.543*x**4 - 24.946*x**3 + 8.6321*x**2 + 1.1195*x
+            wave_drag_coeff = wave_drag_coeff_max * f
+
+        # vehicle is supersonic
+        elif mach_final < mach:
+            if length/diameter >= 6:
+                wave_drag_coeff_max = c * (length/diameter)**g
+            else:
+                wave_drag_coeff_max = c * 6**g
+                
+            wave_drag_coeff = wave_drag_coeff_max
+
+        return friction_form_coeff + wave_drag_coeff
 
     # Approximate drag force on the vessel
     def calc_drag(velocity, altitude):
@@ -722,6 +1046,7 @@ def simulateTraj():
                 drag = (0.5 * alt2dens(altitude) * velocity**2 * chute_coeff * airflow_area) * -sign(velocity)
                 
             else:
+                drag_coeff = calc_drag_coeff(altitude, velocity)
                 drag = (0.5 * alt2dens(altitude) * velocity**2 * drag_coeff * cross_sec) * -sign(velocity)
                 
             dynamic_press = 0.5 * alt2dens(altitude) * velocity**2
@@ -768,6 +1093,8 @@ def simulateTraj():
     drag_list = []
     dyn_press_list = []
     density_list = []
+    mach_list = []
+    drag_coeff_list = []
 
     drogue_deployment_list = []
     chute_deployment_list = []
@@ -932,6 +1259,12 @@ def simulateTraj():
         drag_list.append(drag)
         dyn_press_list.append(dyn_press)
         density_list.append(density)
+        mach_list.append(abs(vel)/calc_speed_of_sound(alt))
+
+        if drag_enabled and abs(vel) > 0:
+            drag_coeff_list.append(calc_drag_coeff(alt, vel))
+        else:
+            drag_coeff_list.append(0)
 
         if not drogue_released:
             drogue_deployment_list.append(drogue_deployment)
@@ -943,7 +1276,8 @@ def simulateTraj():
         time = time + time_increment
 
         if target_apogee_enabled and not engine_shutdown_command and time > time_increment * 2:
-            engine_shutdown_command = calcApogeeDelayed(alt, vel, mass, target_apogee, drag_enabled, cross_sec, drag_coeff, time_increment, [accel_list[-2], accel_list[-1]], engine_shutdown_delay, mdot)
+            engine_shutdown_command = calcApogeeDelayed(alt, vel, mass, target_apogee, drag_enabled, cross_sec, time_increment, [accel_list[-2], accel_list[-1]], engine_shutdown_delay, mdot,
+                                                        diameter, total_length, nose_length, body_length, thickness_upper, chord_upper, thickness_lower, chord_lower, wet_area, ref_area)
             if engine_shutdown_command:
                 time_since_shutdown_command = 0
 
@@ -1035,23 +1369,29 @@ def simulateTraj():
         if get_value("realtime_graph"):
             add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
             add_line_series(name="Velocity", plot="vel_plot",x=time_list, y=vel_list)
+            add_line_series(name="Mach Number", plot="mach_plot", x=time_list, y=mach_list)
             add_line_series(name="Acceleration", plot="accel_plot",x=time_list, y=accel_list)
             add_line_series(name="Thrust", plot="thrust_plot",x=time_list, y=thrust_list)
             add_line_series(name="External Pressure", plot="ext_press_plot",x=time_list, y=external_pressure_list)
             add_line_series(name="Gravity", plot="grav_plot",x=time_list, y=gravity_list)
             add_line_series(name="Isp", plot="isp_plot", x=time_list, y=isp_list)
             add_line_series(name="Drag", plot="drag_plot", x=time_list, y=drag_list)
-            add_line_series(name="Dynamic Pressure", plot="dyn_press_plot", x=time_list, y=dyn_press_list) 
+            add_line_series(name="Drag Coefficient", plot="drag_coefficient_plot", x=time_list, y=drag_coeff_list)
+            add_line_series(name="Dynamic Pressure", plot="dyn_press_plot", x=time_list, y=dyn_press_list)
+            add_line_series(name="Drogue Deployment", plot="drogue_deployment_plot", x=time_list, y=drogue_deployment_list)
+            add_line_series(name="Chute Deployment", plot="chute_deployment_plot", x=time_list, y=chute_deployment_list)
 
     setProgressBarOverlay("Updating graphs...")
     add_line_series(name="Altitude", plot="alt_plot",x=time_list, y=alt_list)
     add_line_series(name="Velocity", plot="vel_plot",x=time_list, y=vel_list)
+    add_line_series(name="Mach Number", plot="mach_plot", x=time_list, y=mach_list)
     add_line_series(name="Acceleration", plot="accel_plot",x=time_list, y=accel_list)
     add_line_series(name="Thrust", plot="thrust_plot",x=time_list, y=thrust_list)
     add_line_series(name="External Pressure", plot="ext_press_plot",x=time_list, y=external_pressure_list)
     add_line_series(name="Gravity", plot="grav_plot",x=time_list, y=gravity_list)
     add_line_series(name="Isp", plot="isp_plot", x=time_list, y=isp_list)
     add_line_series(name="Drag", plot="drag_plot", x=time_list, y=drag_list)
+    add_line_series(name="Drag Coefficient", plot="drag_coefficient_plot", x=time_list, y=drag_coeff_list)
     add_line_series(name="Dynamic Pressure", plot="dyn_press_plot", x=time_list, y=dyn_press_list)
     #add_line_series(name="Density", plot="density_plot", x=time_list, y=density_list)
     add_line_series(name="Drogue Deployment", plot="drogue_deployment_plot", x=time_list, y=drogue_deployment_list)
@@ -1060,7 +1400,7 @@ def simulateTraj():
     global last_results
     last_results = [thrust_list, time_list, alt_list, vel_list, ground_level_list, karman_line_list,
                     external_pressure_list, gravity_list, accel_list, isp_list, drag_list, dyn_press_list,
-                    drogue_deployment_list, chute_deployment_list]
+                    drogue_deployment_list, chute_deployment_list, drag_coeff_list, mach_list]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                    USER INTERFACE
@@ -1139,8 +1479,17 @@ with window("Input", width=550, height=360, no_close=True):
     add_input_text(name = "engine_shutdown_delay_field", label = "Engine Shutdown Delay (s)", width = 250, tip = "Time between the computer sending the engine shutdown signal\nand the actual mechanical shutdown. (Enter 0 if there is no delay.)")
     add_spacing(count=6)
     add_checkbox(name = "drag_model_checkbox", label = "Enable drag model")
+    add_input_text(name = "diameter_field", label = "Vessel Max Diameter (m)", tip="Max. diameter of vehicle.", width=250)
     add_input_text(name = "cross_sec_field", label = "Vessel Cross Section (m^2)", tip="Cross-sec facing the airflow.", width=250)
-    add_input_text(name = "drag_coeff_field", label = "Drag Coefficient", width=250)
+    add_input_text(name = "total_length_field", label = "Vessel Total Length (m)", width=250)
+    add_input_text(name = "nose_length_field", label = "Vessel Nose Length (m)", width=250)
+    add_input_text(name = "body_length_field", label = "Vessel Body Length (m)", width=250)
+    add_input_text(name = "thickness_upper_field", label = "Upper Fin Thickness (m)", width=250)
+    add_input_text(name = "chord_upper_field", label = "Upper Fin Chord (m)", width=250)
+    add_input_text(name = "thickness_lower_field", label = "Lower Fin Thickness (m)", width=250)
+    add_input_text(name = "chord_lower_field", label = "Lower Fin Chord (m)", width=250)
+    add_input_text(name = "wet_area_field", label = "Wetted Area (m^2)", width=250)
+    add_input_text(name = "ref_area_field", label = "Reference Area (m^2)", width=250)
     add_spacing(count=6)
     add_checkbox(name = "drogue_checkbox", label = "Enable drogue chute")
     add_input_text(name = "drogue_deploy_alt_field", label="Drogue Deploy Altitude (m)", width=250)
@@ -1204,6 +1553,8 @@ with window("Output", width=700, height=560, no_close=True):
     end("alt_tab")
     add_tab(name="vel_tab", label="Velocity", parent="output_tabs")
     end("vel_tab")
+    add_tab(name="mach_tab", label="Mach Number", parent="output_tabs")
+    end("mach_tab")
     add_tab(name="accel_tab", label="Acceleration", parent="output_tabs")
     end("accel_tab")
     add_tab(name="thrust_tab", label="Thrust", parent="output_tabs")
@@ -1216,6 +1567,8 @@ with window("Output", width=700, height=560, no_close=True):
     end("isp_tab")
     add_tab(name="drag_tab", label="Drag", parent="output_tabs")
     end("drag_tab")
+    add_tab(name="drag_coeff_tab", label="Drag Coefficient", parent="output_tabs")
+    end("drag_coeff_tab")
     add_tab(name="dyn_press_tab", label="Dyn. Press.", parent="output_tabs")
     end("dyn_press_tab")
     #add_tab(name="density_tab", label="Density", parent="output_tabs")
@@ -1237,6 +1590,9 @@ with window("Output", width=700, height=560, no_close=True):
                    source="tt_max_vel", readonly=True, enabled=False, parent ="vel_tab")
     add_plot(name="vel_plot", label="Velocity vs Time",
              x_axis_name="Time (s)", y_axis_name = "Velocity (m/s)", anti_aliased=True, parent="vel_tab")
+
+    add_plot(name="mach_plot", label="Mach Numer vs Time",
+             x_axis_name="Time (s)", y_axis_name = "Mach Number", anti_aliased=True, parent="mach_tab")
 
     add_input_text(name = "max_accel_output_field", label = "Max. Acceleration (m/s^2)",
                    source="accel_max", readonly=True, enabled=False, parent ="accel_tab")
@@ -1263,6 +1619,9 @@ with window("Output", width=700, height=560, no_close=True):
 
     add_plot(name="drag_plot", label="Drag vs Time",
              x_axis_name="Time (s)", y_axis_name = "Drag (N)", anti_aliased=True, parent="drag_tab")
+    
+    add_plot(name="drag_coefficient_plot", label="Drag Coefficient vs Time",
+             x_axis_name="Time (s)", y_axis_name = "Drag Coefficient", anti_aliased=True, parent="drag_coeff_tab")
 
     add_input_text(name = "max_Q_field", label = "Max. Q at Launch (Pa)",
                    source="max_Q", readonly=True, enabled=False, parent ="dyn_press_tab", tip="Max Q on the way up.")

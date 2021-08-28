@@ -1,0 +1,50 @@
+Save file version 1.4.0
+
+INPUTS
+
+Effective exhaust velocity: 2250.0 m/s
+Mass flow: 4.0 kg/s
+Initial mass: 200.0 kg
+Propellant mass: 100.0 kg
+Initial altitude: 900.0 m
+Nozzle exit pressure: 90000.0 Pa
+Nozzle exit area: 0.0055 m^2
+Time increment: 0.01 s
+Vessel max. diameter: 0.35 m
+Vessel cross-section (facing airflow): 0.096 m^2
+Vessel total length: 2.0 m
+Vessel nose length: 0.25 m
+Vessel body length: 1.9 m
+Upper fin thickness: 0.02 m
+Upper fin chord: 0.2 m
+Lower fin thickness: 0.03 m
+Lower fin chord: 0.35 m
+Wetted area: 2.0 m^2
+Reference area: 0.1 m^2
+Drag model ENABLED.
+Drogue chute ENABLED.
+Drogue chute deployment altitude: 7500.0 m
+Drogue chute deployment time: 2.0 s
+Drogue chute area: 1.5 m^2
+Drogue chute drag coefficient: 2.0
+Drogue chute mass: 7.5 kg
+Main chute ENABLED.
+Main chute deployment altitude: 2000.0 m
+Main chute deployment time: 3.0 s
+Main chute area: 5.0 m^2
+Main chute drag coefficient: 3.0
+Apogee target SET.
+Target apogee: 10000.0 m
+Engine shutdown delay: 1.0 s
+
+OUTPUTS
+
+Maximum altitude: 10009.869288929693 m
+Time to apoapsis: 46.809999999999256 s
+Maximum velocity: 430.527957372823 m/s
+Time to max. velocity: 11.549999999999798 s
+Flight time: 291.7199999998797 s
+Min. specific impulse: 229.30012924903002 s
+Max. specific impulse: 232.7053888097325 s
+Max. dynamic pressure: 80869.57855574915 Pa
+Simulation export file: None (demo)

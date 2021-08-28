@@ -10,18 +10,18 @@ Initial altitude: 900.0 m
 Nozzle exit pressure: 90000.0 Pa
 Nozzle exit area: 0.0055 m^2
 Time increment: 0.01 s
-Vessel max. diameter: Drag model disabled.
-Vessel cross-section (facing airflow): Drag model disabled.
-Vessel total length: Drag model disabled.
-Vessel nose length: Drag model disabled.
-Vessel body length: Drag model disabled.
-Upper fin thickness: Drag model disabled.
-Upper fin chord: Drag model disabled.
-Lower fin thickness: Drag model disabled.
-Lower fin chord: Drag model disabled.
-Wetted area: Drag model disabled.
-Reference area: Drag model disabled.
-Drag model DISABLED.
+Vessel max. diameter: 0.35 m
+Vessel cross-section (facing airflow): 0.096 m^2
+Vessel total length: 2.0 m
+Vessel nose length: 0.25 m
+Vessel body length: 1.9 m
+Upper fin thickness: 0.02 m
+Upper fin chord: 0.2 m
+Lower fin thickness: 0.03 m
+Lower fin chord: 0.35 m
+Wetted area: 2.0 m^2
+Reference area: 0.1 m^2
+Drag model ENABLED.
 Drogue chute DISABLED.
 Drogue chute deployment altitude: Drogue chute disabled.
 Drogue chute deployment time: Drogue chute disabled.
@@ -39,12 +39,12 @@ Engine shutdown delay: Target not set.
 
 OUTPUTS
 
-Maximum altitude: 110241.31237427739 m
-Time to apoapsis: 166.2099999999938 s
-Maximum velocity: 1350.287746841802 m/s
+Maximum altitude: 21926.90941559154 m
+Time to apoapsis: 70.44999999999914 s
+Maximum velocity: 675.0841140339095 m/s
 Time to max. velocity: 25.01000000000111 s
-Flight time: 317.68999999985607 s
+Flight time: 146.57000000001167 s
 Min. specific impulse: 229.30012924903002 s
-Max. specific impulse: 240.4454904122024 s
-Max. dynamic pressure: Drag model disabled.
+Max. specific impulse: 238.78164625196712 s
+Max. dynamic pressure: 91754.98073922373 Pa
 Simulation export file: None (demo)
