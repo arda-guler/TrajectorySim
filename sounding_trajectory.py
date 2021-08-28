@@ -81,7 +81,7 @@ pressure_filename = "./data/atm_pressure_model.txt"
 pressure_file = open(pressure_filename, "r")
 pressure_lines = pressure_file.readlines()
 
-# atmospheric pressure lookup file has values in Pascal, with
+# atmospheric temperature lookup file has values in Kelvin, with
 # steps of 100 meters
 # retrieved from https://www.digitaldutch.com/atmoscalc/table.htm
 temperature_filename = "./data/atm_temp_model.txt"
@@ -387,17 +387,6 @@ def exportFile():
             result_file.write(str(last_time_increment)+" s\n")
             
             if last_drag_model:
-##                last_diameter = diameter
-##                last_cross_sec = cross_sec
-##                last_total_length = total_length
-##                last_nose_length = nose_length
-##                last_body_length = body_length
-##                last_thickness_upper = thickness_upper
-##                last_chord_upper = chord_upper
-##                last_thickness_lower = thickness_lower
-##                last_chord_lower = chord_lower
-##                last_wet_area = wet_area
-##                last_ref_area = ref_area
                 result_file.write("Vessel max. diameter: ")
                 result_file.write(str(last_diameter)+" m\n")
                 result_file.write("Vessel cross-section (facing airflow): ")
