@@ -1591,7 +1591,7 @@ with window("Output", width=700, height=560, no_close=True):
     add_plot(name="vel_plot", label="Velocity vs Time",
              x_axis_name="Time (s)", y_axis_name = "Velocity (m/s)", anti_aliased=True, parent="vel_tab")
 
-    add_plot(name="mach_plot", label="Mach Numer vs Time",
+    add_plot(name="mach_plot", label="Mach Number vs Time",
              x_axis_name="Time (s)", y_axis_name = "Mach Number", anti_aliased=True, parent="mach_tab")
 
     add_input_text(name = "max_accel_output_field", label = "Max. Acceleration (m/s^2)",
